@@ -141,11 +141,11 @@ function replaceMarkers(content: string): string {
     if (replacement.start < cursor) {
       continue;
     }
-    output += content.slice(cursor, replacement.start);
+    output += folded.slice(cursor, replacement.start);
     output += replacement.value;
     cursor = replacement.end;
   }
-  output += content.slice(cursor);
+  output += folded.slice(cursor);
   return output;
 }
 

@@ -101,7 +101,7 @@ function sanitizeMimeType(value?: string): string | undefined {
   if (!trimmed) {
     return undefined;
   }
-  const match = trimmed.match(/^([a-z0-9!#$&^_.+-]+\/[a-z0-9!#$&^_.+-]+)/);
+  const match = trimmed.match(/^([a-z0-9!#$&^_.+-]+\/[a-z0-9!#$&^_.+-]+)$/i);
   return match?.[1];
 }
 

@@ -280,7 +280,7 @@ function normalizeContentType(value: string | null | undefined): string | undefi
     return undefined;
   }
   const [raw] = value.split(";");
-  const trimmed = raw?.trim();
+  const trimmed = raw?.trim().toLowerCase();
   return trimmed || undefined;
 }
 

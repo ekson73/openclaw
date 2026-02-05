@@ -968,8 +968,12 @@ export function createExecTool(
 
       // Logic: Sandbox gets raw env. Host (gateway/node) must pass validation.
       // We validate BEFORE merging to prevent any dangerous vars from entering the stream.
-      if (host !== "sandbox" && params.env) {
-        validateHostEnv(params.env);
+      // Both baseEnv and user-supplied env must be validated for host execution.
+      if (host !== "sandbox") {
+        validateHostEnv(baseEnv);
+        if (params.env) {
+          validateHostEnv(params.env);
+        }
       }
 
       const mergedEnv = params.env ? { ...baseEnv, ...params.env } : baseEnv;
