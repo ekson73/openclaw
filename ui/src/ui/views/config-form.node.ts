@@ -671,7 +671,7 @@ function renderMapField(params: {
           class="cfg-map__add"
           ?disabled=${disabled}
           @click=${() => {
-            const next = { ...value };
+            const next = { ...(value ?? {}) };
             let index = 1;
             let key = `custom-${index}`;
             while (key in next) {
@@ -711,7 +711,7 @@ function renderMapField(params: {
                       if (!nextKey || nextKey === key) {
                         return;
                       }
-                      const next = { ...value };
+                      const next = { ...(value ?? {}) };
                       if (nextKey in next) {
                         return;
                       }
@@ -764,7 +764,7 @@ function renderMapField(params: {
                   title="Remove entry"
                   ?disabled=${disabled}
                   @click=${() => {
-                    const next = { ...value };
+                    const next = { ...(value ?? {}) };
                     delete next[key];
                     onPatch(path, next);
                   }}
