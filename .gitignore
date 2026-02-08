@@ -107,3 +107,4 @@ config.local.*
 **/sessions/
 **/.sessions/
 package-lock.json
+package-lock.json
