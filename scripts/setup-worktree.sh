@@ -48,6 +48,19 @@ case "$TYPE" in
         ;;
 esac
 
+# Validate NAME (prevent path traversal)
+if [[ "$NAME" =~ \.\./ ]] || [[ "$NAME" =~ ^/ ]] || [[ "$NAME" =~ [[:space:]] ]]; then
+    echo -e "${RED}Invalid name: $NAME${NC}"
+    echo "Name cannot contain '../', start with '/', or contain spaces"
+    exit 1
+fi
+
+# Validate NAME format (kebab-case only)
+if ! [[ "$NAME" =~ ^[a-z0-9]+(-[a-z0-9]+)*$ ]]; then
+    echo -e "${YELLOW}Warning: Name '$NAME' is not kebab-case${NC}"
+    echo "Recommended format: lowercase-with-dashes (e.g., my-feature)"
+fi
+
 # Construct branch and worktree names
 BRANCH_NAME="${TYPE}/${NAME}"
 WORKTREE_DIR=".worktrees/${TYPE}-${NAME}"
