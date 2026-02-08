@@ -1,0 +1,117 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://github.com/ekson73/openclaw/schemas/branch-policy.json",
+  "title": "Branch Policy Schema",
+  "description": "Schema for branch protection and policies - RC10",
+  "type": "object",
+  "required": ["policies"],
+  "properties": {
+    "policies": {
+      "type": "array",
+      "description": "List of branch policies",
+      "items": {
+        "type": "object",
+        "required": ["branch", "protection"],
+        "properties": {
+          "branch": {
+            "type": "string",
+            "description": "Branch name or pattern (e.g., 'main', 'release/*')"
+          },
+          "pattern": {
+            "type": "boolean",
+            "description": "Whether branch is a pattern",
+            "default": false
+          },
+          "protection": {
+            "type": "object",
+            "properties": {
+              "requirePullRequest": {
+                "type": "boolean",
+                "default": true
+              },
+              "requiredApprovals": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 6,
+                "default": 1
+              },
+              "dismissStaleReviews": {
+                "type": "boolean",
+                "default": true
+              },
+              "requireCodeOwners": {
+                "type": "boolean",
+                "default": false
+              },
+              "requireSignedCommits": {
+                "type": "boolean",
+                "default": false
+              },
+              "requireLinearHistory": {
+                "type": "boolean",
+                "default": false
+              },
+              "allowForcePush": {
+                "type": "boolean",
+                "default": false
+              },
+              "allowDeletion": {
+                "type": "boolean",
+                "default": false
+              },
+              "requireStatusChecks": {
+                "type": "array",
+                "description": "Required CI checks",
+                "items": { "type": "string" }
+              },
+              "restrictPushAccess": {
+                "type": "array",
+                "description": "Users/teams allowed to push",
+                "items": { "type": "string" }
+              }
+            }
+          },
+          "merge": {
+            "type": "object",
+            "description": "Merge strategy for this branch",
+            "properties": {
+              "allowMergeCommit": { "type": "boolean", "default": true },
+              "allowSquash": { "type": "boolean", "default": true },
+              "allowRebase": { "type": "boolean", "default": true },
+              "deleteBranchOnMerge": { "type": "boolean", "default": true },
+              "requireConventionalCommits": { "type": "boolean", "default": false }
+            }
+          },
+          "sla": {
+            "type": "object",
+            "description": "SLA for reviews on this branch",
+            "properties": {
+              "reviewTimeoutMinutes": {
+                "type": "integer",
+                "minimum": 5,
+                "default": 60
+              },
+              "escalationChannel": {
+                "type": "string",
+                "description": "Channel to escalate timeout"
+              }
+            }
+          }
+        }
+      }
+    },
+    "defaults": {
+      "type": "object",
+      "description": "Default settings for unspecified branches",
+      "properties": {
+        "protection": {
+          "$ref": "#/properties/policies/items/properties/protection"
+        },
+        "merge": {
+          "$ref": "#/properties/policies/items/properties/merge"
+        }
+      }
+    }
+  },
+  "additionalProperties": false
+}

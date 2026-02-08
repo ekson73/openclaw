@@ -1,0 +1,184 @@
+# Fork Governance Configuration - RC10
+# This file defines how ekson73/openclaw fork is governed
+
+version: "1.0.0"
+lastUpdated: "2026-02-05"
+
+# Fork Identity
+fork:
+  owner: ekson73
+  repo: openclaw
+  purpose: "Personal fork with custom integrations and AI-assisted governance"
+  maintainers:
+    - ekson73 # Human owner
+    - eko-bot # AI assistant
+
+# Upstream Configuration
+upstream:
+  owner: openclaw
+  repo: openclaw
+  defaultBranch: main
+  syncFrequency: weekly
+  autoSync: false # Requires review
+
+# Branch Strategy (Git Flow variant)
+branches:
+  # Stable production branch - Eko runs here
+  stable:
+    purpose: "Production-ready code, tagged releases"
+    protection:
+      requirePullRequest: true
+      requiredApprovals: 1
+      requireHumanApproval: true
+      dismissStaleReviews: true
+      requireStatusChecks:
+        - ci/lint
+        - ci/test
+        - ci/build
+      restrictPushAccess:
+        - ekson73
+      allowForcePush: false
+      allowDeletion: false
+    merge:
+      allowSquash: true
+      allowMergeCommit: false
+      allowRebase: false
+    sla:
+      reviewTimeoutMinutes: 1440 # 24h for stable
+
+  # Main development branch
+  main:
+    purpose: "Main development, synced with upstream"
+    protection:
+      requirePullRequest: true
+      requiredApprovals: 1
+      dismissStaleReviews: true
+      requireStatusChecks:
+        - ci/lint
+        - ci/test
+      allowForcePush: false
+    sla:
+      reviewTimeoutMinutes: 60
+
+  # Active development
+  develop:
+    purpose: "Active development, feature integration"
+    protection:
+      requirePullRequest: true
+      requiredApprovals: 1
+      requireStatusChecks:
+        - ci/lint
+    sla:
+      reviewTimeoutMinutes: 30
+
+  # Upstream mirror
+  upstream-sync:
+    purpose: "1:1 mirror of upstream/main"
+    protection:
+      requirePullRequest: false # Auto-synced
+      restrictPushAccess:
+        - eko-bot
+    autoSync: true
+
+# Worktrees Configuration
+worktrees:
+  enabled: true
+  basePath: "../openclaw.worktrees"
+  trees:
+    - branch: develop
+      path: develop
+    - branch: upstream-sync
+      path: upstream-sync
+
+# Decision Making
+governance:
+  model: "human-in-the-loop"
+
+  # Who can make what decisions
+  authority:
+    # Release to stable requires human
+    stable-release:
+      requiredApprovers:
+        - ekson73
+      aiCanPropose: true
+      aiCanApprove: false
+
+    # Merge to main - AI with oversight
+    main-merge:
+      requiredApprovers: 1
+      aiCanApprove: true
+      requireHumanForSecurity: true
+
+    # Merge to develop - AI autonomous
+    develop-merge:
+      requiredApprovers: 1
+      aiCanApprove: true
+      aiAutonomous: true
+
+  # Escalation rules
+  escalation:
+    - trigger: "timeout"
+      afterMinutes: 60
+      notifyChannel: whatsapp
+      notifyTarget: ekson73
+
+    - trigger: "security-flag"
+      immediate: true
+      notifyChannel: whatsapp
+      blockMerge: true
+
+    - trigger: "conflict"
+      afterMinutes: 30
+      notifyChannel: github-issue
+
+  # Circuit breaker for runaway automation
+  circuitBreaker:
+    enabled: true
+    stateIssue: "FORK-CIRCUIT-BREAKER"
+    triggers:
+      - condition: "consecutive-failures"
+        threshold: 3
+        action: "pause-automation"
+      - condition: "merge-rate"
+        threshold: "10/hour"
+        action: "require-human-approval"
+
+# Audit & Compliance
+audit:
+  enabled: true
+  retentionDays: 365
+
+  # What to log
+  events:
+    - merges
+    - approvals
+    - overrides
+    - escalations
+    - circuit-breaker-triggers
+
+  # Where to store
+  storage:
+    primary: github-issues
+    backup: memory/audit/
+
+# Notifications
+notifications:
+  channels:
+    whatsapp:
+      enabled: true
+      urgentOnly: false
+    github:
+      enabled: true
+      issues: true
+      comments: true
+
+  events:
+    release:
+      notify: [whatsapp, github]
+      urgency: high
+    securityAlert:
+      notify: [whatsapp]
+      urgency: critical
+    syncComplete:
+      notify: [github]
+      urgency: low

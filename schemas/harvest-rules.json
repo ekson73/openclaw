@@ -1,0 +1,112 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://github.com/ekson73/openclaw/schemas/harvest-rules.json",
+  "title": "Harvest Rules Schema",
+  "description": "Schema for upstream/fork harvest configuration - RC10",
+  "type": "object",
+  "required": ["harvest"],
+  "properties": {
+    "harvest": {
+      "type": "object",
+      "description": "Rules for harvesting from other forks",
+      "required": ["enabled", "sources"],
+      "properties": {
+        "enabled": { "type": "boolean" },
+        "schedule": {
+          "type": "string",
+          "description": "Cron expression for harvest check",
+          "default": "0 6 * * 1",
+          "pattern": "^[0-9*,/-]+ [0-9*,/-]+ [0-9*,/-]+ [0-9*,/-]+ [0-9*,/-]+$"
+        },
+        "sources": {
+          "type": "array",
+          "description": "Repositories to harvest from",
+          "items": {
+            "type": "object",
+            "required": ["repo"],
+            "properties": {
+              "repo": {
+                "type": "string",
+                "description": "owner/repo format",
+                "pattern": "^[a-zA-Z0-9_-]+/[a-zA-Z0-9_.-]+$"
+              },
+              "priority": {
+                "type": "string",
+                "enum": ["high", "medium", "low"],
+                "default": "medium"
+              },
+              "autoReview": {
+                "type": "boolean",
+                "description": "Auto-create PRs for review",
+                "default": false
+              },
+              "excludePaths": {
+                "type": "array",
+                "description": "Paths to exclude from harvest",
+                "items": { "type": "string" }
+              }
+            }
+          }
+        }
+      }
+    },
+    "filters": {
+      "type": "object",
+      "description": "Filters for what to harvest",
+      "properties": {
+        "commitPatterns": {
+          "type": "array",
+          "description": "Regex patterns for commit messages to include",
+          "items": { "type": "string" }
+        },
+        "excludePatterns": {
+          "type": "array",
+          "description": "Regex patterns for commit messages to exclude",
+          "items": { "type": "string" }
+        },
+        "minCommitAge": {
+          "type": "string",
+          "description": "Minimum age of commits to consider (e.g., '7d')",
+          "pattern": "^[0-9]+[dhwm]$"
+        },
+        "requireTests": {
+          "type": "boolean",
+          "description": "Only harvest commits with test changes",
+          "default": false
+        }
+      }
+    },
+    "review": {
+      "type": "object",
+      "description": "Review requirements for harvested changes",
+      "properties": {
+        "requireApproval": { "type": "boolean", "default": true },
+        "minApprovers": { "type": "integer", "minimum": 1, "default": 1 },
+        "autoMerge": {
+          "type": "boolean",
+          "description": "Auto-merge after approval",
+          "default": false
+        },
+        "labelPrefix": {
+          "type": "string",
+          "default": "harvest:"
+        }
+      }
+    },
+    "notifications": {
+      "type": "object",
+      "properties": {
+        "onNewCommits": { "type": "boolean", "default": true },
+        "onConflict": { "type": "boolean", "default": true },
+        "channels": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "enum": ["github-issue", "slack", "email", "whatsapp"]
+          }
+        }
+      }
+    }
+  },
+  "additionalProperties": false
+}

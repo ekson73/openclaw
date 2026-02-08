@@ -1,0 +1,331 @@
+# Alert Configuration - RC10
+# Defines when and how to send alerts
+
+version: "1.0.0"
+lastUpdated: "2026-02-05"
+
+# Alert Channels
+channels:
+  whatsapp:
+    enabled: true
+    # Target is configured via secrets, not hardcoded
+    targetSecret: ALERT_WHATSAPP_TARGET
+
+    # Rate limiting
+    rateLimit:
+      maxPerHour: 10
+      maxPerDay: 50
+      burstLimit: 3
+
+    # Quiet hours (no non-critical alerts)
+    quietHours:
+      enabled: true
+      start: "22:00"
+      end: "08:00"
+      timezone: "America/Sao_Paulo"
+      exceptLevels: [critical, emergency]
+
+  github:
+    enabled: true
+
+    issues:
+      enabled: true
+      labelPrefix: "alert:"
+      assignDefault: [ekson73]
+
+    comments:
+      enabled: true
+      mentionOnCritical: true
+
+  slack:
+    enabled: false
+    webhookSecret: ALERT_SLACK_WEBHOOK
+
+# Alert Levels
+levels:
+  emergency:
+    description: "Immediate action required - system down or security breach"
+    color: "#FF0000"
+    channels: [whatsapp, github]
+    requireAck: true
+    ackTimeoutMinutes: 15
+    repeatIntervalMinutes: 5
+    bypassQuietHours: true
+
+  critical:
+    description: "Urgent action needed - major functionality impacted"
+    color: "#FF6600"
+    channels: [whatsapp, github]
+    requireAck: true
+    ackTimeoutMinutes: 30
+    repeatIntervalMinutes: 15
+    bypassQuietHours: true
+
+  high:
+    description: "Important issue - needs attention soon"
+    color: "#FFCC00"
+    channels: [whatsapp, github]
+    requireAck: false
+
+  medium:
+    description: "Notable issue - should be addressed"
+    color: "#66CCFF"
+    channels: [github]
+    requireAck: false
+
+  low:
+    description: "Informational - no immediate action needed"
+    color: "#99FF99"
+    channels: [github]
+    requireAck: false
+
+# Alert Rules
+rules:
+  # Security Alerts
+  - id: security-vulnerability
+    name: "Security Vulnerability Detected"
+    level: critical
+    trigger:
+      type: event
+      event: security-scan-failed
+    template: |
+      🔴 **SECURITY ALERT**
+
+      Vulnerability detected in {component}
+      Severity: {severity}
+
+      Details: {details}
+
+      Action required: Review and patch immediately.
+
+  - id: secret-exposed
+    name: "Secret Possibly Exposed"
+    level: emergency
+    trigger:
+      type: pattern
+      patterns:
+        - "password"
+        - "api_key"
+        - "secret"
+        - "token"
+      inPaths:
+        - "**/*.js"
+        - "**/*.ts"
+        - "**/*.json"
+      excludePaths:
+        - "**/*.test.*"
+        - "**/mock/**"
+    template: |
+      🚨 **SECRET EXPOSURE ALERT**
+
+      Possible secret detected in: {file}
+      Line: {line}
+      Pattern: {pattern}
+
+      IMMEDIATE ACTION: Review and rotate if exposed.
+
+  # CI/CD Alerts
+  - id: ci-failed
+    name: "CI Pipeline Failed"
+    level: medium
+    trigger:
+      type: event
+      event: workflow-failed
+    cooldownMinutes: 30
+    template: |
+      ⚠️ **CI Failed**
+
+      Workflow: {workflow}
+      Branch: {branch}
+      Commit: {commit}
+
+      Error: {error}
+
+  - id: ci-consecutive-failures
+    name: "Multiple CI Failures"
+    level: high
+    trigger:
+      type: threshold
+      metric: consecutive-ci-failures
+      threshold: 3
+    template: |
+      🔴 **Multiple CI Failures**
+
+      {count} consecutive failures on {branch}
+
+      Last error: {lastError}
+
+      Consider pausing merges until fixed.
+
+  # Review Alerts
+  - id: review-timeout
+    name: "Review SLA Exceeded"
+    level: medium
+    trigger:
+      type: sla
+      metric: review-pending-time
+      threshold: 60 # minutes
+    template: |
+      ⏰ **Review Timeout**
+
+      PR #{prNumber}: {prTitle}
+      Waiting: {waitingTime} minutes
+
+      Please review or reassign.
+
+  - id: stable-pr-pending
+    name: "Stable Branch PR Pending"
+    level: high
+    trigger:
+      type: event
+      event: pr-opened
+      branch: stable
+    template: |
+      🔵 **PR to Stable Branch**
+
+      PR #{prNumber}: {prTitle}
+      Author: {author}
+
+      Human approval required.
+
+  # Sync Alerts
+  - id: upstream-sync-failed
+    name: "Upstream Sync Failed"
+    level: high
+    trigger:
+      type: event
+      event: sync-failed
+    template: |
+      ❌ **Upstream Sync Failed**
+
+      Error: {error}
+
+      Manual intervention may be required.
+
+  - id: upstream-behind
+    name: "Significantly Behind Upstream"
+    level: medium
+    trigger:
+      type: threshold
+      metric: commits-behind-upstream
+      threshold: 50
+    template: |
+      📊 **Fork Behind Upstream**
+
+      {commitsBehind} commits behind upstream.
+
+      Consider syncing soon.
+
+  # Circuit Breaker Alerts
+  - id: circuit-breaker-open
+    name: "Circuit Breaker Triggered"
+    level: critical
+    trigger:
+      type: event
+      event: circuit-breaker-open
+    template: |
+      🛑 **CIRCUIT BREAKER OPEN**
+
+      Automation paused due to: {reason}
+
+      Triggered at: {timestamp}
+
+      Manual reset required after investigation.
+
+  - id: circuit-breaker-reset
+    name: "Circuit Breaker Reset"
+    level: low
+    trigger:
+      type: event
+      event: circuit-breaker-reset
+    template: |
+      ✅ **Circuit Breaker Reset**
+
+      Automation resumed.
+      Reset by: {resetBy}
+
+      Previous trigger: {previousReason}
+
+  # Harvest Alerts
+  - id: harvest-found
+    name: "Harvest Commits Found"
+    level: low
+    trigger:
+      type: event
+      event: harvest-analysis-complete
+      condition: "commitsFound > 0"
+    template: |
+      🌾 **Harvest Available**
+
+      Found {commitsFound} interesting commits from {source}.
+
+      Review: {reviewUrl}
+
+  - id: harvest-conflict
+    name: "Harvest Conflict Detected"
+    level: medium
+    trigger:
+      type: event
+      event: harvest-conflict
+    template: |
+      ⚠️ **Harvest Conflict**
+
+      Conflict when harvesting from {source}
+      Commit: {commit}
+
+      Manual resolution required.
+
+# Aggregation Rules
+aggregation:
+  # Don't spam with similar alerts
+  deduplication:
+    enabled: true
+    windowMinutes: 60
+    groupBy: [rule-id, branch]
+
+  # Summarize if too many
+  batching:
+    enabled: true
+    maxAlertsBeforeBatch: 5
+    batchWindowMinutes: 15
+    batchTemplate: |
+      📋 **Alert Summary**
+
+      {alertCount} alerts in the last {windowMinutes} minutes:
+
+      {alertSummary}
+
+# Acknowledgment
+acknowledgment:
+  # How to ack alerts
+  methods:
+    - type: github-reaction
+      emoji: "👀"
+    - type: github-comment
+      pattern: "^ack"
+    - type: whatsapp-reply
+      pattern: "^(ok|ack|acknowledged)"
+
+  # Escalation if not acked
+  escalation:
+    - afterMinutes: 15
+      action: repeat
+    - afterMinutes: 30
+      action: escalate
+      to: [ekson73]
+    - afterMinutes: 60
+      action: page
+      channel: whatsapp
+
+# Testing
+testing:
+  # Test alert destination
+  testChannel: github
+
+  # Dry run mode
+  dryRun: false
+
+  # Test command
+  testCommand: |
+    # Trigger test alert
+    # gh workflow run alert-test.yml

@@ -1,0 +1,164 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://github.com/ekson73/openclaw/schemas/ci-config.json",
+  "title": "CI Configuration Schema",
+  "description": "Schema for CI/CD pipeline configuration - RC10",
+  "type": "object",
+  "required": ["ci"],
+  "properties": {
+    "ci": {
+      "type": "object",
+      "required": ["provider"],
+      "properties": {
+        "provider": {
+          "type": "string",
+          "enum": ["github-actions", "circleci", "jenkins", "gitlab-ci"],
+          "default": "github-actions"
+        },
+        "enabled": { "type": "boolean", "default": true }
+      }
+    },
+    "jobs": {
+      "type": "object",
+      "description": "CI job configurations",
+      "properties": {
+        "lint": {
+          "type": "object",
+          "properties": {
+            "enabled": { "type": "boolean", "default": true },
+            "required": { "type": "boolean", "default": true },
+            "tools": {
+              "type": "array",
+              "items": { "type": "string" },
+              "default": ["eslint", "prettier"]
+            }
+          }
+        },
+        "test": {
+          "type": "object",
+          "properties": {
+            "enabled": { "type": "boolean", "default": true },
+            "required": { "type": "boolean", "default": true },
+            "coverageThreshold": {
+              "type": "number",
+              "minimum": 0,
+              "maximum": 100,
+              "default": 80
+            },
+            "parallelism": {
+              "type": "integer",
+              "minimum": 1,
+              "default": 4
+            }
+          }
+        },
+        "build": {
+          "type": "object",
+          "properties": {
+            "enabled": { "type": "boolean", "default": true },
+            "required": { "type": "boolean", "default": true },
+            "artifacts": {
+              "type": "array",
+              "description": "Paths to upload as artifacts",
+              "items": { "type": "string" }
+            }
+          }
+        },
+        "security": {
+          "type": "object",
+          "properties": {
+            "enabled": { "type": "boolean", "default": true },
+            "required": { "type": "boolean", "default": false },
+            "scanners": {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "enum": ["dependabot", "codeql", "snyk", "trivy"]
+              },
+              "default": ["dependabot"]
+            }
+          }
+        }
+      }
+    },
+    "triggers": {
+      "type": "object",
+      "description": "When to run CI",
+      "properties": {
+        "pullRequest": {
+          "type": "object",
+          "properties": {
+            "enabled": { "type": "boolean", "default": true },
+            "branches": {
+              "type": "array",
+              "items": { "type": "string" },
+              "default": ["main", "develop", "stable"]
+            }
+          }
+        },
+        "push": {
+          "type": "object",
+          "properties": {
+            "enabled": { "type": "boolean", "default": true },
+            "branches": {
+              "type": "array",
+              "items": { "type": "string" },
+              "default": ["main", "develop"]
+            }
+          }
+        },
+        "schedule": {
+          "type": "object",
+          "properties": {
+            "enabled": { "type": "boolean", "default": false },
+            "cron": { "type": "string" }
+          }
+        }
+      }
+    },
+    "timeouts": {
+      "type": "object",
+      "description": "Job timeout settings",
+      "properties": {
+        "defaultMinutes": {
+          "type": "integer",
+          "minimum": 1,
+          "default": 30
+        },
+        "maxMinutes": {
+          "type": "integer",
+          "minimum": 1,
+          "default": 60
+        }
+      }
+    },
+    "matrix": {
+      "type": "object",
+      "description": "Build matrix configuration",
+      "properties": {
+        "os": {
+          "type": "array",
+          "items": { "type": "string" },
+          "default": ["ubuntu-latest"]
+        },
+        "nodeVersions": {
+          "type": "array",
+          "items": { "type": "string" },
+          "default": ["20", "22"]
+        }
+      }
+    },
+    "cache": {
+      "type": "object",
+      "properties": {
+        "enabled": { "type": "boolean", "default": true },
+        "paths": {
+          "type": "array",
+          "items": { "type": "string" },
+          "default": ["node_modules", ".npm"]
+        }
+      }
+    }
+  },
+  "additionalProperties": false
+}

@@ -1,0 +1,244 @@
+# Review Rules Configuration - RC10
+# Defines code review policies and automation
+
+version: "1.0.0"
+lastUpdated: "2026-02-05"
+
+# Review Requirements by Branch
+branches:
+  stable:
+    minApprovals: 1
+    requireHumanApproval: true
+    unanimity: true # All reviewers must approve
+    dismissStaleReviews: true
+    requireCodeOwners: false
+
+    # Who can approve
+    allowedApprovers:
+      - ekson73
+
+    # Required checks before merge
+    requiredChecks:
+      - ci/lint
+      - ci/test
+      - ci/build
+      - security/scan
+
+    # Time limits
+    sla:
+      firstResponseMinutes: 120
+      completionMinutes: 1440 # 24h
+      escalateAfterMinutes: 240
+
+  main:
+    minApprovals: 1
+    requireHumanApproval: false
+    unanimity: false
+    dismissStaleReviews: true
+
+    allowedApprovers:
+      - ekson73
+      - eko-bot
+
+    requiredChecks:
+      - ci/lint
+      - ci/test
+
+    sla:
+      firstResponseMinutes: 30
+      completionMinutes: 60
+      escalateAfterMinutes: 90
+
+  develop:
+    minApprovals: 1
+    requireHumanApproval: false
+    unanimity: false
+    dismissStaleReviews: false
+
+    allowedApprovers:
+      - ekson73
+      - eko-bot
+
+    requiredChecks:
+      - ci/lint
+
+    sla:
+      firstResponseMinutes: 15
+      completionMinutes: 30
+      escalateAfterMinutes: 60
+
+# Auto-Review Rules (AI can auto-approve)
+autoReview:
+  enabled: true
+
+  # Conditions for auto-approval
+  conditions:
+    # Small changes
+    smallChange:
+      maxFiles: 3
+      maxLines: 50
+      excludePaths:
+        - "**/*.lock"
+        - "**/security/**"
+        - "**/auth/**"
+
+    # Documentation only
+    docsOnly:
+      paths:
+        - "**/*.md"
+        - "**/docs/**"
+      excludePaths:
+        - "SECURITY.md"
+        - "**/security/**"
+
+    # Dependencies (with restrictions)
+    dependencies:
+      paths:
+        - "package.json"
+        - "package-lock.json"
+      conditions:
+        - "no-major-version-bumps"
+        - "no-new-dependencies"
+        - "security-audit-passed"
+
+    # Config changes (careful)
+    config:
+      paths:
+        - "config/**"
+        - "*.yaml"
+        - "*.json"
+      requireHumanReview: true
+      autoApprove: false
+
+  # Never auto-approve these
+  neverAutoApprove:
+    paths:
+      - "**/security/**"
+      - "**/auth/**"
+      - "**/*.key"
+      - "**/*.pem"
+      - "**/*.env*"
+      - "**/secrets/**"
+    labels:
+      - "security"
+      - "breaking-change"
+      - "needs-human-review"
+    authors:
+      - "dependabot[bot]" # Review dependency updates
+
+# Review Checklist Templates
+checklists:
+  default:
+    - "Code follows project style guide"
+    - "Tests included for new functionality"
+    - "Documentation updated if needed"
+    - "No sensitive data exposed"
+    - "Changelog entry added if needed"
+
+  security:
+    - "No hardcoded secrets/tokens"
+    - "Input validation present"
+    - "Auth/authz properly checked"
+    - "No SQL injection vulnerabilities"
+    - "No XSS vulnerabilities"
+    - "Dependencies security-audited"
+    - "Sensitive data not logged"
+
+  performance:
+    - "No N+1 queries"
+    - "Proper caching implemented"
+    - "No memory leaks"
+    - "Async operations where appropriate"
+    - "Bundle size impact acceptable"
+
+  breaking:
+    - "Migration path documented"
+    - "Deprecation warnings added"
+    - "Changelog clearly notes breaking change"
+    - "Version bump is major"
+
+# Review Assignment
+assignment:
+  # Auto-assign based on paths
+  pathBased:
+    - paths: ["src/core/**", "lib/**"]
+      assignees: [ekson73, eko-bot]
+      required: 1
+
+    - paths: ["**/security/**", "**/auth/**"]
+      assignees: [ekson73]
+      required: 1
+      label: "security"
+
+    - paths: ["**/*.md", "docs/**"]
+      assignees: [eko-bot]
+      required: 1
+      label: "documentation"
+
+    - paths: ["config/**", "schemas/**", "agents/**"]
+      assignees: [ekson73, eko-bot]
+      required: 1
+      label: "governance"
+
+  # Load balancing
+  loadBalancing:
+    enabled: true
+    maxConcurrentReviews: 5
+    cooldownMinutes: 10
+
+# Comments and Feedback
+comments:
+  # Auto-comments on PRs
+  autoComments:
+    onOpen:
+      enabled: true
+      template: |
+        👋 Thanks for the PR!
+
+        This will be reviewed according to our [review policy](./config/review-rules.yaml).
+
+        **Checklist:**
+        - [ ] Tests passing
+        - [ ] Lint passing
+        - [ ] Documentation updated
+
+    onApprove:
+      enabled: true
+      template: "✅ LGTM! Approved for merge."
+
+    onRequestChanges:
+      enabled: true
+      includeChecklist: true
+
+  # Stale PR handling
+  stalePR:
+    daysUntilStale: 14
+    daysUntilClose: 30
+    exemptLabels:
+      - "wip"
+      - "blocked"
+      - "long-running"
+    staleComment: |
+      ⏰ This PR has been inactive for 14 days.
+
+      It will be closed in 16 days if no activity occurs.
+
+      Remove the `stale` label to keep it open.
+
+# Metrics and Analytics
+metrics:
+  track:
+    - reviewTime
+    - timeToFirstResponse
+    - timeToMerge
+    - approvalRate
+    - changesRequestedRate
+
+  alerts:
+    - metric: averageReviewTime
+      threshold: "> 120 minutes"
+      notify: [ekson73]
+
+    - metric: pendingReviews
+      threshold: "> 5"
+      notify: [eko-bot]

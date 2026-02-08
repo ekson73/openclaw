@@ -1,0 +1,128 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://github.com/ekson73/openclaw/schemas/fork-config.json",
+  "title": "Fork Configuration Schema",
+  "description": "Schema for fork governance configuration - RC10",
+  "type": "object",
+  "required": ["fork", "upstream", "branches", "versioning"],
+  "properties": {
+    "fork": {
+      "type": "object",
+      "description": "Fork identity and metadata",
+      "required": ["owner", "repo", "purpose"],
+      "properties": {
+        "owner": {
+          "type": "string",
+          "description": "GitHub username/org that owns the fork",
+          "pattern": "^[a-zA-Z0-9_-]+$"
+        },
+        "repo": {
+          "type": "string",
+          "description": "Repository name",
+          "pattern": "^[a-zA-Z0-9_.-]+$"
+        },
+        "purpose": {
+          "type": "string",
+          "description": "Why this fork exists",
+          "minLength": 10
+        },
+        "maintainers": {
+          "type": "array",
+          "description": "GitHub usernames of maintainers",
+          "items": { "type": "string" },
+          "minItems": 1
+        }
+      }
+    },
+    "upstream": {
+      "type": "object",
+      "description": "Upstream repository configuration",
+      "required": ["owner", "repo", "syncFrequency"],
+      "properties": {
+        "owner": { "type": "string" },
+        "repo": { "type": "string" },
+        "defaultBranch": {
+          "type": "string",
+          "default": "main"
+        },
+        "syncFrequency": {
+          "type": "string",
+          "enum": ["hourly", "daily", "weekly", "manual"],
+          "description": "How often to sync with upstream"
+        },
+        "autoSync": {
+          "type": "boolean",
+          "default": false,
+          "description": "Whether to auto-sync without review"
+        }
+      }
+    },
+    "branches": {
+      "type": "object",
+      "description": "Branch configuration",
+      "required": ["stable", "develop"],
+      "properties": {
+        "stable": {
+          "type": "string",
+          "description": "Branch where stable releases live",
+          "default": "stable"
+        },
+        "develop": {
+          "type": "string",
+          "description": "Branch for active development",
+          "default": "develop"
+        },
+        "upstreamSync": {
+          "type": "string",
+          "description": "Branch mirroring upstream",
+          "default": "upstream-sync"
+        },
+        "featurePrefix": {
+          "type": "string",
+          "default": "feat/"
+        },
+        "fixPrefix": {
+          "type": "string",
+          "default": "fix/"
+        },
+        "hotfixPrefix": {
+          "type": "string",
+          "default": "hotfix/"
+        }
+      }
+    },
+    "versioning": {
+      "type": "object",
+      "description": "Version and tagging strategy",
+      "required": ["scheme"],
+      "properties": {
+        "scheme": {
+          "type": "string",
+          "enum": ["semver", "calver", "custom"],
+          "default": "semver"
+        },
+        "tagPrefix": {
+          "type": "string",
+          "default": "v"
+        },
+        "startVersion": {
+          "type": "string",
+          "default": "0.0.0"
+        }
+      }
+    },
+    "worktrees": {
+      "type": "object",
+      "description": "Git worktree configuration",
+      "properties": {
+        "enabled": { "type": "boolean", "default": true },
+        "basePath": {
+          "type": "string",
+          "description": "Base path for worktrees (relative to repo)",
+          "default": "../openclaw.worktrees"
+        }
+      }
+    }
+  },
+  "additionalProperties": false
+}

@@ -1,0 +1,164 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://github.com/ekson73/openclaw/schemas/release-config.json",
+  "title": "Release Configuration Schema",
+  "description": "Schema for release process configuration - RC10",
+  "type": "object",
+  "required": ["versioning", "release"],
+  "properties": {
+    "versioning": {
+      "type": "object",
+      "required": ["scheme"],
+      "properties": {
+        "scheme": {
+          "type": "string",
+          "enum": ["semver", "calver", "custom"],
+          "default": "semver"
+        },
+        "tagPrefix": {
+          "type": "string",
+          "default": "v"
+        },
+        "preReleaseIdentifiers": {
+          "type": "array",
+          "description": "Valid pre-release identifiers",
+          "items": { "type": "string" },
+          "default": ["alpha", "beta", "rc"]
+        }
+      }
+    },
+    "release": {
+      "type": "object",
+      "properties": {
+        "branches": {
+          "type": "object",
+          "properties": {
+            "stable": {
+              "type": "string",
+              "description": "Branch for stable releases",
+              "default": "stable"
+            },
+            "preRelease": {
+              "type": "string",
+              "description": "Branch for pre-releases",
+              "default": "develop"
+            }
+          }
+        },
+        "automation": {
+          "type": "object",
+          "properties": {
+            "autoTag": {
+              "type": "boolean",
+              "description": "Auto-create tags on merge to stable",
+              "default": false
+            },
+            "autoChangelog": {
+              "type": "boolean",
+              "description": "Auto-generate changelog",
+              "default": true
+            },
+            "autoRelease": {
+              "type": "boolean",
+              "description": "Auto-create GitHub release",
+              "default": false
+            }
+          }
+        },
+        "changelog": {
+          "type": "object",
+          "properties": {
+            "file": {
+              "type": "string",
+              "default": "CHANGELOG.md"
+            },
+            "format": {
+              "type": "string",
+              "enum": ["keepachangelog", "conventional", "custom"],
+              "default": "keepachangelog"
+            },
+            "categories": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "required": ["name", "patterns"],
+                "properties": {
+                  "name": { "type": "string" },
+                  "patterns": {
+                    "type": "array",
+                    "items": { "type": "string" }
+                  }
+                }
+              },
+              "default": [
+                { "name": "Added", "patterns": ["^feat"] },
+                { "name": "Fixed", "patterns": ["^fix"] },
+                { "name": "Changed", "patterns": ["^refactor", "^chore"] },
+                { "name": "Security", "patterns": ["^security"] }
+              ]
+            }
+          }
+        }
+      }
+    },
+    "approval": {
+      "type": "object",
+      "description": "Release approval requirements",
+      "properties": {
+        "requiredApprovers": {
+          "type": "integer",
+          "minimum": 1,
+          "default": 1
+        },
+        "unanimity": {
+          "type": "boolean",
+          "description": "Require all reviewers to approve",
+          "default": false
+        },
+        "approvers": {
+          "type": "array",
+          "description": "Allowed release approvers",
+          "items": { "type": "string" }
+        },
+        "timeoutMinutes": {
+          "type": "integer",
+          "description": "Timeout for approval",
+          "default": 60
+        }
+      }
+    },
+    "hotfix": {
+      "type": "object",
+      "description": "Hotfix release configuration",
+      "properties": {
+        "enabled": { "type": "boolean", "default": true },
+        "maxTimeboxMinutes": {
+          "type": "integer",
+          "description": "Maximum time for hotfix review",
+          "default": 240
+        },
+        "requireHumanApproval": {
+          "type": "boolean",
+          "default": true
+        },
+        "bypassChecks": {
+          "type": "array",
+          "description": "Checks that can be bypassed for hotfix",
+          "items": { "type": "string" }
+        }
+      }
+    },
+    "notifications": {
+      "type": "object",
+      "properties": {
+        "onRelease": { "type": "boolean", "default": true },
+        "onPreRelease": { "type": "boolean", "default": false },
+        "channels": {
+          "type": "array",
+          "items": { "type": "string" }
+        }
+      }
+    }
+  },
+  "additionalProperties": false
+}
