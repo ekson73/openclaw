@@ -1,103 +1,185 @@
-#!/usr/bin/env bash
-#
-# OpenClaw Fork Install Script
-# Installs OpenClaw from a local fork directory
-#
-# Usage:
-#   ./scripts/install.sh [options]
-#
-# Options:
-#   --dry-run       Show what would be done without executing
-#   --force         Skip confirmation prompts
-#   --help          Show this help message
-#
-# Environment Variables:
-#   OPENCLAW_FORK_DIR    Fork directory (default: auto-detect from script location)
-#
-
+#!/bin/bash
 set -euo pipefail
 
+#═══════════════════════════════════════════════════════════════════════════════
+# install.sh — Instala OpenClaw do fork local
+#═══════════════════════════════════════════════════════════════════════════════
+#
+# Uso:
+#   ./scripts/install.sh              # Instalação padrão
+#   ./scripts/install.sh --dry-run    # Apenas simula
+#   ./scripts/install.sh --link       # Usa npm link (dev mode)
+#   ./scripts/install.sh --global     # Instala globalmente
+#
+# Pré-requisitos:
+#   - Node.js 22+ instalado
+#   - pnpm instalado
+#
+#═══════════════════════════════════════════════════════════════════════════════
+
+# Cores
 RED='\033[0;31m'
 GREEN='\033[0;32m'
 YELLOW='\033[1;33m'
 BLUE='\033[0;34m'
-NC='\033[0m'
+CYAN='\033[0;36m'
+NC='\033[0m' # No Color
 
-DRY_RUN=false
-FORCE=false
-
+# Auto-detectar diretório do fork
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-OPENCLAW_FORK_DIR="${OPENCLAW_FORK_DIR:-$(dirname "$SCRIPT_DIR")}"
+FORK_DIR="${OPENCLAW_FORK_DIR:-$(dirname "$SCRIPT_DIR")}"
 
-log() { echo -e "${BLUE}[install]${NC} $*"; }
-log_ok() { echo -e "${GREEN}[install]${NC} ✓ $*"; }
-log_warn() { echo -e "${YELLOW}[install]${NC} ⚠ $*"; }
-log_error() { echo -e "${RED}[install]${NC} ✗ $*"; }
+# Flags
+DRY_RUN=0
+USE_LINK=0
+INSTALL_GLOBAL=0
 
-usage() { head -20 "$0" | grep "^#" | sed 's/^# \?//'; exit 0; }
-
+# Parse args
 while [[ $# -gt 0 ]]; do
     case $1 in
-        --dry-run) DRY_RUN=true; shift ;;
-        --force) FORCE=true; shift ;;
-        --help|-h) usage ;;
-        *) log_error "Unknown option: $1"; usage ;;
+        --dry-run)
+            DRY_RUN=1
+            shift
+            ;;
+        --link)
+            USE_LINK=1
+            shift
+            ;;
+        --global)
+            INSTALL_GLOBAL=1
+            shift
+            ;;
+        --help|-h)
+            echo "Uso: $0 [opções]"
+            echo ""
+            echo "Opções:"
+            echo "  --dry-run    Apenas simula, não executa"
+            echo "  --link       Usa npm link (modo desenvolvimento)"
+            echo "  --global     Instala globalmente via npm"
+            echo ""
+            echo "Variáveis de ambiente:"
+            echo "  OPENCLAW_FORK_DIR  Diretório do fork (default: auto-detectado)"
+            exit 0
+            ;;
+        *)
+            echo -e "${RED}Opção desconhecida: $1${NC}"
+            exit 1
+            ;;
     esac
 done
 
-[[ ! -f "$OPENCLAW_FORK_DIR/package.json" ]] && { log_error "Not a valid OpenClaw directory: $OPENCLAW_FORK_DIR"; exit 1; }
+echo -e "${BLUE}╔═══════════════════════════════════════════════════════════════╗${NC}"
+echo -e "${BLUE}║           🦞 OpenClaw Fork Install                            ║${NC}"
+echo -e "${BLUE}╚═══════════════════════════════════════════════════════════════╝${NC}"
+echo ""
 
-VERSION=$(grep '"version"' "$OPENCLAW_FORK_DIR/package.json" | head -1 | sed 's/.*"version": *"\([^"]*\)".*/\1/')
-log "OpenClaw Fork Installer"
-log "Fork directory: $OPENCLAW_FORK_DIR"
-log "Version: $VERSION"
-echo
-
-check_prereqs() {
-    log "Checking prerequisites..."
-    command -v node >/dev/null 2>&1 || { log_error "Node.js not found"; exit 1; }
-    command -v npm >/dev/null 2>&1 || { log_error "npm not found"; exit 1; }
-    NODE_VERSION=$(node -v | sed 's/v//' | cut -d. -f1)
-    [[ $NODE_VERSION -lt 20 ]] && { log_error "Node.js 20+ required, found: $(node -v)"; exit 1; }
-    log_ok "Node $(node -v), npm $(npm -v)"
+# Função para executar ou simular
+run() {
+    if [[ $DRY_RUN -eq 1 ]]; then
+        echo -e "${YELLOW}[DRY-RUN] $*${NC}"
+    else
+        echo -e "${CYAN}$ $*${NC}"
+        eval "$@"
+    fi
 }
 
-build_fork() {
-    log "Building fork..."
-    $DRY_RUN && { log "[dry-run] Would run: npm install && npm run build"; return; }
-    cd "$OPENCLAW_FORK_DIR"
-    [[ ! -d "node_modules" ]] && { log "Installing dependencies..."; npm install; }
-    log "Compiling TypeScript..."
-    npm run build
-    log_ok "Build complete"
-}
+# Verificar se fork existe
+if [[ ! -d "$FORK_DIR" ]]; then
+    echo -e "${RED}❌ Fork não encontrado em $FORK_DIR${NC}"
+    echo -e "${YELLOW}Clone o fork primeiro:${NC}"
+    echo -e "  git clone <your-fork-url> $FORK_DIR"
+    echo -e "${YELLOW}Ou defina OPENCLAW_FORK_DIR para apontar para seu fork existente.${NC}"
+    exit 1
+fi
 
-install_global() {
-    log "Installing globally..."
-    $DRY_RUN && { log "[dry-run] Would run: npm link"; return; }
-    cd "$OPENCLAW_FORK_DIR"
-    npm unlink -g openclaw 2>/dev/null || true
-    npm link
-    command -v openclaw >/dev/null 2>&1 && log_ok "Installed: openclaw $(openclaw --version 2>/dev/null | tail -1)" || log_warn "openclaw not in PATH"
-}
+cd "$FORK_DIR"
 
-confirm() {
-    $FORCE && return 0
-    echo
-    read -p "Proceed with installation? [y/N] " -n 1 -r
-    echo
-    [[ ! $REPLY =~ ^[Yy]$ ]] && { log "Aborted."; exit 0; }
-}
+# Mostrar info do fork
+CURRENT_BRANCH=$(git branch --show-current 2>/dev/null || echo "unknown")
+CURRENT_COMMIT=$(git rev-parse --short HEAD 2>/dev/null || echo "unknown")
+VERSION=$(grep '"version"' package.json 2>/dev/null | sed 's/.*: "\(.*\)".*/\1/' | head -1 || echo "unknown")
 
-main() {
-    $DRY_RUN && { log_warn "DRY RUN MODE"; echo; }
-    check_prereqs
-    confirm
-    build_fork
-    install_global
-    echo
-    log "Installation complete!"
-    echo "  Run 'openclaw --version' to verify."
-}
+echo -e "${GREEN}✓ Fork: $FORK_DIR${NC}"
+echo -e "${GREEN}✓ Branch: $CURRENT_BRANCH${NC}"
+echo -e "${GREEN}✓ Commit: $CURRENT_COMMIT${NC}"
+echo -e "${GREEN}✓ Versão: $VERSION${NC}"
+echo ""
 
-main "$@"
+# Verificar dependências
+echo -e "${BLUE}→ Verificando dependências...${NC}"
+
+if ! command -v node &> /dev/null; then
+    echo -e "${RED}❌ Node.js não encontrado${NC}"
+    exit 1
+fi
+NODE_VERSION=$(node --version)
+echo -e "${GREEN}✓ Node.js: $NODE_VERSION${NC}"
+
+if ! command -v pnpm &> /dev/null; then
+    echo -e "${YELLOW}⚠️  pnpm não encontrado, instalando...${NC}"
+    run "npm install -g pnpm"
+fi
+PNPM_VERSION=$(pnpm --version 2>/dev/null || echo "unknown")
+echo -e "${GREEN}✓ pnpm: $PNPM_VERSION${NC}"
+echo ""
+
+# Instalar dependências
+echo -e "${BLUE}→ Instalando dependências do fork...${NC}"
+run "pnpm install --frozen-lockfile"
+echo ""
+
+# Build
+echo -e "${BLUE}→ Buildando...${NC}"
+run "pnpm build"
+echo ""
+
+# Instalar
+if [[ $USE_LINK -eq 1 ]]; then
+    echo -e "${BLUE}→ Criando link simbólico (modo dev)...${NC}"
+    run "npm link"
+elif [[ $INSTALL_GLOBAL -eq 1 ]]; then
+    echo -e "${BLUE}→ Instalando globalmente...${NC}"
+    run "npm install -g ."
+else
+    # Default: npm link (mais seguro para dev)
+    echo -e "${BLUE}→ Criando link simbólico...${NC}"
+    run "npm link"
+fi
+echo ""
+
+# Gerar checksum
+if [[ -f "${SCRIPT_DIR}/build.sh" ]]; then
+    echo -e "${BLUE}→ Gerando checksum...${NC}"
+    run "${SCRIPT_DIR}/build.sh checksum"
+    echo ""
+fi
+
+# Verificar instalação
+echo -e "${BLUE}→ Verificando instalação...${NC}"
+
+if [[ $DRY_RUN -eq 0 ]]; then
+    # Recarregar PATH
+    export PATH="$HOME/.volta/bin:$HOME/.local/bin:/usr/local/bin:$PATH"
+    
+    if command -v openclaw &> /dev/null; then
+        INSTALLED_VERSION=$(openclaw --version 2>/dev/null | head -1)
+        INSTALLED_PATH=$(command -v openclaw)
+        echo -e "${GREEN}✅ OpenClaw instalado: $INSTALLED_VERSION${NC}"
+        echo -e "${GREEN}✅ Binário: $INSTALLED_PATH${NC}"
+    else
+        echo -e "${YELLOW}⚠️  openclaw não encontrado no PATH atual${NC}"
+        echo -e "${YELLOW}   Tente abrir um novo terminal ou executar:${NC}"
+        echo -e "${CYAN}   source ~/.bashrc  # ou ~/.zshrc${NC}"
+    fi
+else
+    echo -e "${YELLOW}[DRY-RUN] Verificação pulada${NC}"
+fi
+
+echo ""
+echo -e "${GREEN}╔═══════════════════════════════════════════════════════════════╗${NC}"
+echo -e "${GREEN}║              ✅ Instalação concluída!                          ║${NC}"
+echo -e "${GREEN}╚═══════════════════════════════════════════════════════════════╝${NC}"
+echo ""
+echo -e "Próximos passos:"
+echo -e "  ${CYAN}openclaw gateway start${NC}    # Iniciar gateway"
+echo -e "  ${CYAN}openclaw status${NC}           # Ver status"
