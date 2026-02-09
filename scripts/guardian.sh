@@ -42,7 +42,7 @@ failure_count=0
 last_restart_time=0
 
 log() {
-    echo "[$(date '+%Y-%m-%d %H:%M:%S')] $1" | tee -a "$LOG_FILE"
+    echo "[$(date '+%Y-%m-%d %H:%M:%S')] [$USER]" "$@" | tee -a "$LOG_FILE"
 }
 
 health_check() {
@@ -76,10 +76,12 @@ do_recovery() {
     log "⏳ Aguardando startup (${STARTUP_GRACE_PERIOD}s)..."
     sleep "$STARTUP_GRACE_PERIOD"
     
+    # Atualizar timestamp ANTES de verificar - evita loop infinito de recovery
+    last_restart_time=$(date +%s)
+    
     # Verificar saúde
     if health_check; then
         log "✅ Recovery concluído com sucesso"
-        last_restart_time=$(date +%s)
         failure_count=0
         return 0
     else

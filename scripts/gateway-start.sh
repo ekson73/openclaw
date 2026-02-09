@@ -33,7 +33,7 @@ export OPENCLAW_DISABLE_FALLBACK_L4="true"
 mkdir -p "$LOG_DIR"
 
 log() {
-    echo "[$(date '+%Y-%m-%d %H:%M:%S')] $1" | tee -a "$LOG_FILE"
+    echo "[$(date '+%Y-%m-%d %H:%M:%S')] [$USER]" "$@" | tee -a "$LOG_FILE"
 }
 
 #-------------------------------------------------------------------------------

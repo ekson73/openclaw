@@ -79,7 +79,7 @@ run() {
         echo -e "${YELLOW}[DRY-RUN] $*${NC}"
     else
         echo -e "${CYAN}$ $*${NC}"
-        eval "$@"
+        "$@"  # Safer than eval - prevents command injection
     fi
 }
 
