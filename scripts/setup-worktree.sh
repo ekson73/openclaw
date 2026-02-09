@@ -117,7 +117,7 @@ if [[ -f "$SESSIONS_FILE" ]]; then
 EOF
 )
         # Add to active_sessions
-        jq --argjson session "$NEW_SESSION" '.active_sessions += [$session] | .last_updated = now | todate' "$SESSIONS_FILE" > "${SESSIONS_FILE}.tmp" && mv "${SESSIONS_FILE}.tmp" "$SESSIONS_FILE"
+        jq --argjson session "$NEW_SESSION" '.active_sessions += [$session] | .last_updated = (now | todate)' "$SESSIONS_FILE" > "${SESSIONS_FILE}.tmp" && mv "${SESSIONS_FILE}.tmp" "$SESSIONS_FILE"
         echo -e "${GREEN}✓ Session added to sessions.json${NC}"
     else
         echo -e "${YELLOW}jq not found, skipping sessions.json update${NC}"

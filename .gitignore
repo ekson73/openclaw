@@ -103,8 +103,7 @@ config.local.*
 .gitleaks-baseline.json
 
 # Session data
-~/.openclaw/
+**/.openclaw/
 **/sessions/
 **/.sessions/
-package-lock.json
 package-lock.json

@@ -49,15 +49,15 @@ echo -e "\n${YELLOW}Checking skills allowlist file...${NC}"
 if [[ -f "$ALLOWLIST_FILE" ]]; then
   echo "  Found allowlist at: $ALLOWLIST_FILE"
   
-  # Validate JSON
-  if ! python3 -c "import json; json.load(open('$ALLOWLIST_FILE'))" 2>/dev/null && \
-     ! node -e "require('$ALLOWLIST_FILE')" 2>/dev/null; then
+  # Validate JSON (using args instead of string interpolation for security)
+  if ! python3 -c 'import json, sys; json.load(open(sys.argv[1]))' "$ALLOWLIST_FILE" 2>/dev/null && \
+     ! node -e 'require(process.argv[1])' "$ALLOWLIST_FILE" 2>/dev/null; then
     echo -e "${RED}ERROR: Allowlist file is not valid JSON${NC}"
     EXIT_CODE=1
   else
-    # Extract allowed skill IDs
-    ALLOWED_SKILLS=$(python3 -c "import json; print('\n'.join(json.load(open('$ALLOWLIST_FILE')).get('allowed', [])))" 2>/dev/null || \
-                     node -e "console.log(require('$ALLOWLIST_FILE').allowed?.join('\n') || '')" 2>/dev/null || echo "")
+    # Extract allowed skill IDs (using args instead of string interpolation for security)
+    ALLOWED_SKILLS=$(python3 -c 'import json, sys; print("\n".join(json.load(open(sys.argv[1])).get("allowed", [])))' "$ALLOWLIST_FILE" 2>/dev/null || \
+                     node -e 'console.log(require(process.argv[1]).allowed?.join("\n") || "")' "$ALLOWLIST_FILE" 2>/dev/null || echo "")
     
     if [[ -z "$ALLOWED_SKILLS" ]]; then
       echo -e "${YELLOW}NOTE: Allowlist is empty - no skills will be loaded${NC}"
@@ -108,8 +108,8 @@ if [[ -d "$SKILLS_DIR" ]]; then
           fi
         fi
         
-        # Check for suspicious permissions
-        PERMISSIONS=$(python3 -c "import json; m=json.load(open('$MANIFEST_FILE')); p=m.get('permissions',{}); print('subprocess' if p.get('subprocess',{}).get('allowed') else '', 'network' if p.get('network',{}).get('egress') not in [None,'deny'] else '', 'fs-write' if 'write' in str(p.get('filesystem',{})) else '')" 2>/dev/null || echo "")
+        # Check for suspicious permissions (using args instead of string interpolation for security)
+        PERMISSIONS=$(python3 -c 'import json, sys; m=json.load(open(sys.argv[1])); p=m.get("permissions",{}); print("subprocess" if p.get("subprocess",{}).get("allowed") else "", "network" if p.get("network",{}).get("egress") not in [None,"deny"] else "", "fs-write" if "write" in str(p.get("filesystem",{})) else "")' "$MANIFEST_FILE" 2>/dev/null || echo "")
         
         if [[ "$PERMISSIONS" == *"subprocess"* ]]; then
           echo -e "      ${YELLOW}Warning: Requests subprocess permissions${NC}"

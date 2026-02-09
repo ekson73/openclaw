@@ -21,7 +21,7 @@ Adicionar script setup-worktree.sh para automação de criação de worktrees co
 - [ ] Testes
 - [x] Documentação
 - [ ] PR criado
-- [ ] Review aprovado
+- [ ] Revisão aprovada
 
 ---
 *Gerado automaticamente por setup-worktree.sh*

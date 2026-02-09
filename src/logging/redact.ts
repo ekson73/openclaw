@@ -31,6 +31,7 @@ export const SENSITIVE_HEADERS = [
 /**
  * Payload field names that should be redacted
  */
+// All field names normalized to lowercase for case-insensitive matching
 export const SENSITIVE_PAYLOAD_FIELDS = [
   "token",
   "tokens",
@@ -41,22 +42,25 @@ export const SENSITIVE_PAYLOAD_FIELDS = [
   "password",
   "passwd",
   "api_key",
-  "apiKey",
+  "apikey",
   "access_token",
-  "accessToken",
+  "accesstoken",
   "refresh_token",
-  "refreshToken",
+  "refreshtoken",
   "private_key",
-  "privateKey",
+  "privatekey",
   "service_role",
-  "serviceRole",
+  "servicerole",
   "anon_key",
-  "anonKey",
+  "anonkey",
   "supabase_key",
-  "supabaseKey",
+  "supabasekey",
   "credentials",
   "auth",
 ];
+
+// Set for O(1) lookup performance
+const SENSITIVE_FIELDS_SET = new Set(SENSITIVE_PAYLOAD_FIELDS);
 
 const DEFAULT_REDACT_PATTERNS: string[] = [
   // ENV-style assignments.
@@ -269,8 +273,8 @@ export function deepRedactPayload<T>(
     const result = { ...obj } as Record<string, unknown>;
 
     for (const [key, value] of Object.entries(result)) {
-      // Check if key matches sensitive fields
-      if (SENSITIVE_PAYLOAD_FIELDS.includes(key.toLowerCase())) {
+      // Check if key matches sensitive fields (case-insensitive)
+      if (SENSITIVE_FIELDS_SET.has(key.toLowerCase())) {
         result[key] = "[REDACTED]";
       } else if (typeof value === "string") {
         result[key] = redactSensitiveText(value);
