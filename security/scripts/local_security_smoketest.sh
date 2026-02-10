@@ -27,12 +27,18 @@ WARNINGS=0
 run_check() {
   local name="$1"
   local script="$2"
+  local exit_code=0
   
   TOTAL_CHECKS=$((TOTAL_CHECKS + 1))
   echo -e "${BLUE}[$TOTAL_CHECKS] $name${NC}"
   
   if [[ -f "$script" ]]; then
-    if bash "$script" 2>&1 | sed 's/^/  /'; then
+    # Capture exit code before pipe to avoid losing it
+    bash "$script" 2>&1 > /tmp/check_output.txt || exit_code=$?
+    sed 's/^/  /' /tmp/check_output.txt
+    rm -f /tmp/check_output.txt
+    
+    if [[ $exit_code -eq 0 ]]; then
       PASSED_CHECKS=$((PASSED_CHECKS + 1))
     else
       FAILED_CHECKS=$((FAILED_CHECKS + 1))
@@ -62,6 +68,7 @@ if [[ -f "$OPENCLAW_DIR/config.yaml" ]]; then
   if [[ "$PERMS" != "600" ]] && [[ "$PERMS" != "400" ]]; then
     echo -e "  ${YELLOW}Warning: Config file permissions are $PERMS (recommend 600)${NC}"
     WARNINGS=$((WARNINGS + 1))
+    CONFIG_ISSUES=$((CONFIG_ISSUES + 1))
   else
     echo -e "  ${GREEN}✓ Config file permissions are secure ($PERMS)${NC}"
   fi
@@ -75,6 +82,7 @@ if [[ -d "$OPENCLAW_DIR" ]]; then
   if [[ "$PERMS" != "700" ]] && [[ "$PERMS" != "750" ]]; then
     echo -e "  ${YELLOW}Warning: State directory permissions are $PERMS (recommend 700)${NC}"
     WARNINGS=$((WARNINGS + 1))
+    CONFIG_ISSUES=$((CONFIG_ISSUES + 1))
   else
     echo -e "  ${GREEN}✓ State directory permissions are secure ($PERMS)${NC}"
   fi

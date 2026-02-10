@@ -35,16 +35,18 @@ echo -e "${BLUE}Running gitleaks...${NC}"
 if check_tool gitleaks; then
   GITLEAKS_CONFIG="$REPO_ROOT/security/gitleaks/.gitleaks.toml"
   
+  # Build command args array to avoid word splitting issues
+  GITLEAKS_ARGS=("detect" "--source=$REPO_ROOT" "--report-format=json")
+  
   if [[ -f "$GITLEAKS_CONFIG" ]]; then
-    CONFIG_ARG="--config=$GITLEAKS_CONFIG"
-  else
-    CONFIG_ARG=""
+    GITLEAKS_ARGS+=("--config=$GITLEAKS_CONFIG")
   fi
   
   # Create temp file for results
   GITLEAKS_REPORT=$(mktemp)
+  GITLEAKS_ARGS+=("--report-path=$GITLEAKS_REPORT")
   
-  if gitleaks detect $CONFIG_ARG --source="$REPO_ROOT" --report-path="$GITLEAKS_REPORT" --report-format=json 2>/dev/null; then
+  if gitleaks "${GITLEAKS_ARGS[@]}" 2>/dev/null; then
     echo -e "${GREEN}✓ Gitleaks: No secrets found${NC}"
   else
     FINDINGS=$(cat "$GITLEAKS_REPORT" 2>/dev/null || echo "[]")

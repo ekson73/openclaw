@@ -129,7 +129,10 @@ if [[ -d "$SKILLS_DIR" ]]; then
         DANGEROUS=$(grep -rlE 'curl.*\|.*sh|wget.*\|.*bash|exec\s*\(|eval\s*\(' "$skill_path" 2>/dev/null || true)
         if [[ -n "$DANGEROUS" ]]; then
           echo -e "      ${RED}ALERT: Dangerous code patterns detected:${NC}"
-          echo "$DANGEROUS" | head -3 | sed 's/^/        /'
+          # Print first 3 dangerous files with indentation
+          echo "$DANGEROUS" | head -3 | while IFS= read -r line; do
+            echo "        $line"
+          done
           EXIT_CODE=1
         fi
       fi
@@ -154,7 +157,10 @@ for location in "${UNEXPECTED_LOCATIONS[@]}"; do
     FOUND=$(find "$location" -name "manifest.json" -path "*/skills*" 2>/dev/null | head -5 || true)
     if [[ -n "$FOUND" ]]; then
       echo -e "${YELLOW}WARNING: Potential skills found in $location:${NC}"
-      echo "$FOUND" | sed 's/^/  /'
+      # Print each line with indentation
+      while IFS= read -r line; do
+        echo "  $line"
+      done <<< "$FOUND"
     fi
   fi
 done
