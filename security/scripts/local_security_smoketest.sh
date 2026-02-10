@@ -34,7 +34,8 @@ run_check() {
   
   if [[ -f "$script" ]]; then
     # Capture exit code before pipe to avoid losing it
-    bash "$script" 2>&1 > /tmp/check_output.txt || exit_code=$?
+    # Correct order: redirect stdout to file, then stderr to stdout (now file)
+    bash "$script" > /tmp/check_output.txt 2>&1 || exit_code=$?
     sed 's/^/  /' /tmp/check_output.txt
     rm -f /tmp/check_output.txt
     
