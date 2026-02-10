@@ -136,7 +136,13 @@ LARGE_FILES=$(git -C "$REPO_ROOT" rev-list --objects --all 2>/dev/null | \
   sed -n 's/^blob //p' | \
   sort -rnk2 | \
   head -10 | \
-  awk '$2 > 1000000 {print $3 " (" int($2/1024/1024) "MB)"}' || true)
+  awk '$2 > 1000000 {
+    size=$2;
+    # Remove first two fields to preserve full path with spaces
+    $1=""; $2="";
+    sub(/^[ \t]+/, "");
+    print $0 " (" int(size/1024/1024) "MB)"
+  }' || true)
 
 if [[ -n "$LARGE_FILES" ]]; then
   echo -e "${YELLOW}Large files found in git history (may contain secrets):${NC}"
