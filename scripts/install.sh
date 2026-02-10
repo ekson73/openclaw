@@ -92,6 +92,21 @@ if [[ ! -d "$FORK_DIR" ]]; then
     exit 1
 fi
 
+# Validar que é um checkout do OpenClaw (package.json + .git obrigatórios)
+if [[ ! -f "$FORK_DIR/package.json" ]] || [[ ! -d "$FORK_DIR/.git" ]]; then
+    echo -e "${RED}❌ Diretório não parece ser um checkout do OpenClaw${NC}"
+    echo -e "${YELLOW}Esperado: package.json e .git em $FORK_DIR${NC}"
+    echo -e "${YELLOW}Verifique se OPENCLAW_FORK_DIR está apontando para o diretório correto.${NC}"
+    exit 1
+fi
+
+# Validar que package.json é do OpenClaw (não outro projeto)
+if ! grep -q '"name":.*"openclaw"' "$FORK_DIR/package.json" 2>/dev/null; then
+    echo -e "${RED}❌ package.json não parece ser do OpenClaw${NC}"
+    echo -e "${YELLOW}Verifique se está apontando para o diretório correto do fork.${NC}"
+    exit 1
+fi
+
 cd "$FORK_DIR"
 
 # Mostrar info do fork
@@ -114,6 +129,16 @@ if ! command -v node &> /dev/null; then
 fi
 NODE_VERSION=$(node --version)
 echo -e "${GREEN}✓ Node.js: $NODE_VERSION${NC}"
+
+# Validar versão mínima do Node (22.12.0+)
+# Extrair versão major do node (ex: v22.12.0 → 22)
+NODE_MAJOR=$(echo "$NODE_VERSION" | sed 's/v//' | cut -d. -f1)
+NODE_MINOR=$(echo "$NODE_VERSION" | sed 's/v//' | cut -d. -f2)
+if [[ "$NODE_MAJOR" -lt 22 ]] || [[ "$NODE_MAJOR" -eq 22 && "$NODE_MINOR" -lt 12 ]]; then
+    echo -e "${RED}❌ Node.js 22.12.0+ é necessário (encontrado: $NODE_VERSION)${NC}"
+    echo -e "${YELLOW}Atualize o Node.js: https://nodejs.org/${NC}"
+    exit 1
+fi
 
 if ! command -v pnpm &> /dev/null; then
     echo -e "${YELLOW}⚠️  pnpm não encontrado, instalando...${NC}"

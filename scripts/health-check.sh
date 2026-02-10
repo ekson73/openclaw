@@ -11,13 +11,33 @@ export PATH="${HOME}/.volta/bin:/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin:/
 
 set -euo pipefail
 
-# Auto-detectar binário OpenClaw
+#-------------------------------------------------------------------------------
+# Wrapper para timeout (macOS usa gtimeout via Homebrew, Linux usa timeout)
+#-------------------------------------------------------------------------------
+run_with_timeout() {
+    local timeout_sec="$1"
+    shift
+    
+    if command -v gtimeout &>/dev/null; then
+        gtimeout "$timeout_sec" "$@"
+    elif command -v timeout &>/dev/null; then
+        timeout "$timeout_sec" "$@"
+    else
+        # Fallback: executar sem timeout (log warning)
+        echo "⚠️ timeout/gtimeout não disponível, executando sem timeout" >&2
+        "$@"
+    fi
+}
+
+#-------------------------------------------------------------------------------
+# Auto-detectar binário OpenClaw (armazenado como array para suportar espaços)
+#-------------------------------------------------------------------------------
 if command -v openclaw &>/dev/null; then
-    OPENCLAW_BIN="$(command -v openclaw)"
+    OPENCLAW_CMD=("$(command -v openclaw)")
 elif [ -x "${HOME}/.volta/bin/openclaw" ]; then
-    OPENCLAW_BIN="${HOME}/.volta/bin/openclaw"
+    OPENCLAW_CMD=("${HOME}/.volta/bin/openclaw")
 elif [ -x "${OPENCLAW_FORK_DIR:-}/dist/openclaw.mjs" ]; then
-    OPENCLAW_BIN="node ${OPENCLAW_FORK_DIR}/dist/openclaw.mjs"
+    OPENCLAW_CMD=("node" "${OPENCLAW_FORK_DIR}/dist/openclaw.mjs")
 else
     echo "❌ OpenClaw não encontrado"
     exit 1
@@ -28,8 +48,8 @@ TIMEOUT_SECONDS="${OPENCLAW_HEALTH_TIMEOUT:-10}"
 # Health Check: Gateway está respondendo
 health_check_gateway() {
     local exit_code=0
-    # Capturar exit code explicitamente (evita problemas com set -e e timeout)
-    timeout "$TIMEOUT_SECONDS" $OPENCLAW_BIN gateway status >/dev/null 2>&1 || exit_code=$?
+    # Usar wrapper de timeout + array para comando
+    run_with_timeout "$TIMEOUT_SECONDS" "${OPENCLAW_CMD[@]}" gateway status >/dev/null 2>&1 || exit_code=$?
     
     if [ "$exit_code" -eq 0 ]; then
         echo "✅ Gateway OK"
@@ -46,7 +66,7 @@ health_check_whatsapp() {
     local exit_code=0
     # Usar openclaw status para ver channels
     # Timeout de 15s porque status pode demorar
-    status=$(timeout 15 $OPENCLAW_BIN status 2>/dev/null) || exit_code=$?
+    status=$(run_with_timeout 15 "${OPENCLAW_CMD[@]}" status 2>/dev/null) || exit_code=$?
     
     if [ "$exit_code" -eq 124 ]; then
         echo "⚠️ WhatsApp check timeout"
@@ -78,7 +98,7 @@ health_check_process() {
 
 # Health Check: Binário existe e é executável
 health_check_binary() {
-    if $OPENCLAW_BIN --version >/dev/null 2>&1; then
+    if "${OPENCLAW_CMD[@]}" --version >/dev/null 2>&1; then
         echo "✅ Binário OK"
         return 0
     else
@@ -127,6 +147,10 @@ show_help() {
     echo ""
     echo "Variáveis de ambiente:"
     echo "  OPENCLAW_HEALTH_TIMEOUT  Timeout em segundos (default: 10)"
+    echo ""
+    echo "Notas:"
+    echo "  - Requer 'gtimeout' (Homebrew) no macOS ou 'timeout' (coreutils) no Linux"
+    echo "  - Instalar no macOS: brew install coreutils"
 }
 
 # Execução

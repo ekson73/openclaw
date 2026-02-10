@@ -27,11 +27,15 @@ NOTIFY_TARGET="${OPENCLAW_GUARDIAN_NOTIFY:-}"                 # número para not
 # Criar diretórios se não existirem
 mkdir -p "$LOG_DIR"
 
-# Auto-detectar binário OpenClaw
+#-------------------------------------------------------------------------------
+# Auto-detectar binário OpenClaw (armazenado como array para suportar espaços)
+#-------------------------------------------------------------------------------
 if command -v openclaw &>/dev/null; then
-    OPENCLAW_BIN="openclaw"
+    OPENCLAW_CMD=("$(command -v openclaw)")
 elif [ -x "${HOME}/.volta/bin/openclaw" ]; then
-    OPENCLAW_BIN="${HOME}/.volta/bin/openclaw"
+    OPENCLAW_CMD=("${HOME}/.volta/bin/openclaw")
+elif [ -x "${FORK_DIR}/dist/openclaw.mjs" ]; then
+    OPENCLAW_CMD=("node" "${FORK_DIR}/dist/openclaw.mjs")
 else
     echo "❌ OpenClaw não encontrado"
     exit 1
@@ -52,8 +56,8 @@ health_check() {
             return 0
         fi
     else
-        # Fallback: verificar diretamente
-        if $OPENCLAW_BIN gateway status >/dev/null 2>&1; then
+        # Fallback: verificar diretamente (usando array para segurança)
+        if "${OPENCLAW_CMD[@]}" gateway status >/dev/null 2>&1; then
             return 0
         fi
     fi
@@ -63,21 +67,21 @@ health_check() {
 do_recovery() {
     log "🔴 INICIANDO RECOVERY AUTOMÁTICO"
     
+    # Atualizar timestamp ANTES de recovery - evita loop infinito
+    last_restart_time=$(date +%s)
+    
     # Parar gateway
     log "⏹️ Parando gateway..."
-    $OPENCLAW_BIN gateway stop 2>/dev/null || true
+    "${OPENCLAW_CMD[@]}" gateway stop 2>/dev/null || true
     sleep 2
     
     # Reiniciar gateway
     log "▶️ Iniciando gateway..."
-    $OPENCLAW_BIN gateway start 2>/dev/null || true
+    "${OPENCLAW_CMD[@]}" gateway start 2>/dev/null || true
     
     # Aguardar startup
     log "⏳ Aguardando startup (${STARTUP_GRACE_PERIOD}s)..."
     sleep "$STARTUP_GRACE_PERIOD"
-    
-    # Atualizar timestamp ANTES de verificar - evita loop infinito de recovery
-    last_restart_time=$(date +%s)
     
     # Verificar saúde
     if health_check; then
@@ -95,7 +99,7 @@ notify_owner() {
     
     # Notificar apenas se target configurado
     if [ -n "$NOTIFY_TARGET" ]; then
-        $OPENCLAW_BIN message send --channel whatsapp \
+        "${OPENCLAW_CMD[@]}" message send --channel whatsapp \
             --target "$NOTIFY_TARGET" \
             --message "🚨 GUARDIAN: $message" 2>/dev/null || true
         log "📱 Notificação enviada para $NOTIFY_TARGET"

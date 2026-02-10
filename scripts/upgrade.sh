@@ -108,6 +108,27 @@ if [[ ! -d "$WORK_DIR" ]]; then
     exit 1
 fi
 
+# Validar que é um checkout do OpenClaw (package.json + .git obrigatórios)
+if [[ ! -f "$WORK_DIR/package.json" ]] || [[ ! -d "$WORK_DIR/.git" ]]; then
+    echo -e "${RED}❌ Diretório não parece ser um checkout do OpenClaw${NC}"
+    echo -e "${YELLOW}Esperado: package.json e .git em $WORK_DIR${NC}"
+    echo -e "${YELLOW}Verifique se OPENCLAW_FORK_DIR está correto.${NC}"
+    exit 1
+fi
+
+# Validar Node.js 22.12.0+
+if ! command -v node &> /dev/null; then
+    echo -e "${RED}❌ Node.js não encontrado${NC}"
+    exit 1
+fi
+NODE_VERSION=$(node --version)
+NODE_MAJOR=$(echo "$NODE_VERSION" | sed 's/v//' | cut -d. -f1)
+NODE_MINOR=$(echo "$NODE_VERSION" | sed 's/v//' | cut -d. -f2)
+if [[ "$NODE_MAJOR" -lt 22 ]] || [[ "$NODE_MAJOR" -eq 22 && "$NODE_MINOR" -lt 12 ]]; then
+    echo -e "${RED}❌ Node.js 22.12.0+ é necessário (encontrado: $NODE_VERSION)${NC}"
+    exit 1
+fi
+
 cd "$WORK_DIR"
 
 # Determinar branch atual se não especificado

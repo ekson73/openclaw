@@ -22,13 +22,18 @@ BACKUP_DIR="${HOME}/.openclaw/backup"
 
 mkdir -p "$LOG_DIR" "$BACKUP_DIR"
 
-# Auto-detectar binário OpenClaw
+#-------------------------------------------------------------------------------
+# Auto-detectar binário OpenClaw (armazenado como array para suportar espaços)
+#-------------------------------------------------------------------------------
 if command -v openclaw &>/dev/null; then
-    OPENCLAW_BIN="openclaw"
+    OPENCLAW_CMD=("$(command -v openclaw)")
 elif [ -x "${HOME}/.volta/bin/openclaw" ]; then
-    OPENCLAW_BIN="${HOME}/.volta/bin/openclaw"
+    OPENCLAW_CMD=("${HOME}/.volta/bin/openclaw")
+elif [ -x "${FORK_DIR}/dist/openclaw.mjs" ]; then
+    OPENCLAW_CMD=("node" "${FORK_DIR}/dist/openclaw.mjs")
 else
-    OPENCLAW_BIN="node ${FORK_DIR}/dist/openclaw.mjs"
+    echo "❌ OpenClaw não encontrado"
+    exit 1
 fi
 
 log() {
@@ -44,12 +49,12 @@ do_recovery() {
     
     # Parar gateway se estiver rodando
     log "⏹️ Parando gateway..."
-    $OPENCLAW_BIN gateway stop 2>/dev/null || true
+    "${OPENCLAW_CMD[@]}" gateway stop 2>/dev/null || true
     sleep 2
     
     # Reiniciar gateway
     log "▶️ Iniciando gateway..."
-    $OPENCLAW_BIN gateway start 2>/dev/null || true
+    "${OPENCLAW_CMD[@]}" gateway start 2>/dev/null || true
     
     # Aguardar startup
     log "⏳ Aguardando startup (10s)..."
@@ -93,8 +98,12 @@ do_rollback_commit() {
     pnpm install --frozen-lockfile
     pnpm build
     
-    # Gerar novo checksum
-    "${SCRIPT_DIR}/build.sh" checksum
+    # Gerar novo checksum (se o script existir)
+    if [ -x "${SCRIPT_DIR}/build.sh" ]; then
+        "${SCRIPT_DIR}/build.sh" checksum
+    else
+        log "⚠️ Script de build não encontrado, ignorando checksum"
+    fi
     
     # Reiniciar gateway
     log "🔄 Reiniciando gateway..."
@@ -118,12 +127,12 @@ test_recovery() {
     log "🧪 Iniciando TESTE de recovery (dry-run)..."
     
     # 1. Verificar binário
-    if ! $OPENCLAW_BIN --version >/dev/null 2>&1; then
+    if ! "${OPENCLAW_CMD[@]}" --version >/dev/null 2>&1; then
         log "❌ Binário openclaw não encontrado"
         return 1
     fi
     local version
-    version=$($OPENCLAW_BIN --version 2>/dev/null || echo "unknown")
+    version=$("${OPENCLAW_CMD[@]}" --version 2>/dev/null || echo "unknown")
     log "✅ Binário encontrado: $version"
     
     # 2. Verificar se gateway está rodando
@@ -134,7 +143,7 @@ test_recovery() {
     fi
     
     # 3. Verificar se consegue obter status
-    if $OPENCLAW_BIN gateway status >/dev/null 2>&1; then
+    if "${OPENCLAW_CMD[@]}" gateway status >/dev/null 2>&1; then
         log "✅ Gateway status OK"
     else
         log "⚠️ Gateway status falhou"

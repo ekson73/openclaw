@@ -61,10 +61,16 @@ jobs:
           else
             echo "⚠️ Fast-forward not possible, creating sync branch"
             git reset --hard HEAD
-            git checkout -b upstream-sync-$(date +%Y%m%d) || git checkout upstream-sync-$(date +%Y%m%d)
-            git merge upstream/main --no-edit || true
+
+            # Create a clean branch pointing to upstream/main
+            # This avoids the conflict state entirely
+            SYNC_BRANCH="upstream-sync-$(date +%Y%m%d)"
+            git checkout -B "$SYNC_BRANCH" upstream/main
+            git push origin "$SYNC_BRANCH" --force
+
             echo "synced=false" >> $GITHUB_OUTPUT
             echo "conflict=true" >> $GITHUB_OUTPUT
+            echo "sync_branch=$SYNC_BRANCH" >> $GITHUB_OUTPUT
           fi
 
       - name: Create PR if conflict
