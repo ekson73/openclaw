@@ -90,14 +90,20 @@ if [[ -d "$SKILLS_DIR" ]]; then
       skill_path="$SKILLS_DIR/$skill_id"
       
       # Check if skill is in allowlist
-      if [[ -f "$ALLOWLIST_FILE" ]] && [[ -n "$ALLOWED_SKILLS" ]]; then
-        if echo "$ALLOWED_SKILLS" | grep -qx "$skill_id"; then
+      if [[ -f "$ALLOWLIST_FILE" ]]; then
+        # Allowlist file exists - enforce it
+        if [[ -z "$ALLOWED_SKILLS" ]]; then
+          # Empty allowlist = block ALL skills
+          echo -e "    ${RED}✗ $skill_id (allowlist is empty - no skills permitted)${NC}"
+          EXIT_CODE=1
+        elif echo "$ALLOWED_SKILLS" | grep -qFx "$skill_id"; then
           echo -e "    ${GREEN}✓ $skill_id (allowed)${NC}"
         else
           echo -e "    ${RED}✗ $skill_id (NOT in allowlist)${NC}"
           EXIT_CODE=1
         fi
       else
+        # No allowlist file - informational only
         echo -e "    ${BLUE}? $skill_id (no allowlist to check against)${NC}"
       fi
       
