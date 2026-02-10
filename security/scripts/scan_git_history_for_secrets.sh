@@ -116,7 +116,8 @@ CRITICAL_PATTERNS=(
 for pattern in "${CRITICAL_PATTERNS[@]}"; do
   echo -n "  Checking for '$pattern'... "
   
-  MATCHES=$(git -C "$REPO_ROOT" log -p --all -S "$pattern" --pretty=format:"%h %s" 2>/dev/null | head -5 || true)
+  # Avoid -p flag to prevent re-exposing secrets in logs
+  MATCHES=$(git -C "$REPO_ROOT" log --all -n 5 -S "$pattern" --pretty=format:"%h %s" 2>/dev/null || true)
   
   if [[ -n "$MATCHES" ]]; then
     echo -e "${RED}FOUND${NC}"
