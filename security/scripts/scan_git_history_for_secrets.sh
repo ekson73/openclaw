@@ -82,20 +82,20 @@ echo -e "\n${BLUE}Running trufflehog...${NC}"
 if check_tool trufflehog; then
   TRUFFLEHOG_REPORT=$(mktemp)
   
-  if trufflehog git "file://$REPO_ROOT" --json --only-verified 2>/dev/null > "$TRUFFLEHOG_REPORT"; then
-    if [[ -s "$TRUFFLEHOG_REPORT" ]]; then
-      COUNT=$(wc -l < "$TRUFFLEHOG_REPORT" | tr -d ' ')
-      echo -e "${RED}✗ TruffleHog: Found $COUNT verified secret(s)${NC}"
-      head -5 "$TRUFFLEHOG_REPORT" | while IFS= read -r line; do
-        detector=$(echo "$line" | python3 -c "import json,sys; print(json.load(sys.stdin).get('DetectorName', 'unknown'))" 2>/dev/null || echo "unknown")
-        echo "  - $detector"
-      done
-      EXIT_CODE=1
-    else
-      echo -e "${GREEN}✓ TruffleHog: No verified secrets found${NC}"
-    fi
+  # Note: trufflehog returns exit 0 even when secrets found (by design)
+  # Must check output file content, not exit code
+  trufflehog git "file://$REPO_ROOT" --json --only-verified 2>/dev/null > "$TRUFFLEHOG_REPORT" || true
+  
+  if [[ -s "$TRUFFLEHOG_REPORT" ]]; then
+    COUNT=$(wc -l < "$TRUFFLEHOG_REPORT" | tr -d ' ')
+    echo -e "${RED}✗ TruffleHog: Found $COUNT verified secret(s)${NC}"
+    head -5 "$TRUFFLEHOG_REPORT" | while IFS= read -r line; do
+      detector=$(echo "$line" | python3 -c "import json,sys; print(json.load(sys.stdin).get('DetectorName', 'unknown'))" 2>/dev/null || echo "unknown")
+      echo "  - $detector"
+    done
+    EXIT_CODE=1
   else
-    echo -e "${GREEN}✓ TruffleHog: No secrets found${NC}"
+    echo -e "${GREEN}✓ TruffleHog: No verified secrets found${NC}"
   fi
   
   rm -f "$TRUFFLEHOG_REPORT"
