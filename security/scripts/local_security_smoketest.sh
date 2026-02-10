@@ -35,9 +35,11 @@ run_check() {
   if [[ -f "$script" ]]; then
     # Capture exit code before pipe to avoid losing it
     # Correct order: redirect stdout to file, then stderr to stdout (now file)
-    bash "$script" > /tmp/check_output.txt 2>&1 || exit_code=$?
-    sed 's/^/  /' /tmp/check_output.txt
-    rm -f /tmp/check_output.txt
+    local tmpfile
+    tmpfile=$(mktemp /tmp/openclaw-check.XXXXXX)
+    bash "$script" > "$tmpfile" 2>&1 || exit_code=$?
+    sed 's/^/  /' "$tmpfile"
+    rm -f "$tmpfile"
     
     if [[ $exit_code -eq 0 ]]; then
       PASSED_CHECKS=$((PASSED_CHECKS + 1))

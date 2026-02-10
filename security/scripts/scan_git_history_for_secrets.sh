@@ -43,7 +43,7 @@ if check_tool gitleaks; then
   fi
   
   # Create temp file for results
-  GITLEAKS_REPORT=$(mktemp)
+  GITLEAKS_REPORT=$(mktemp /tmp/openclaw-scan.XXXXXX)
   GITLEAKS_ARGS+=("--report-path=$GITLEAKS_REPORT")
   
   if gitleaks "${GITLEAKS_ARGS[@]}" 2>/dev/null; then
@@ -80,7 +80,7 @@ fi
 # TruffleHog scan
 echo -e "\n${BLUE}Running trufflehog...${NC}"
 if check_tool trufflehog; then
-  TRUFFLEHOG_REPORT=$(mktemp)
+  TRUFFLEHOG_REPORT=$(mktemp /tmp/openclaw-scan.XXXXXX)
   
   # Note: trufflehog returns exit 0 even when secrets found (by design)
   # Must check output file content, not exit code
