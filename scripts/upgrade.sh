@@ -1,134 +1,244 @@
-#!/usr/bin/env bash
-#
-# OpenClaw Fork Upgrade Script
-# Updates the fork and reinstalls
-#
-# Usage:
-#   ./scripts/upgrade.sh [options]
-#
-# Options:
-#   --dry-run       Show what would be done without executing
-#   --force         Skip confirmation prompts
-#   --upstream      Sync with upstream before upgrading
-#   --no-restart    Don't restart gateway after upgrade
-#   --help          Show this help message
-#
-# Environment Variables:
-#   OPENCLAW_FORK_DIR    Fork directory (default: auto-detect)
-#
-
+#!/bin/bash
 set -euo pipefail
 
+#═══════════════════════════════════════════════════════════════════════════════
+# upgrade.sh — Atualiza OpenClaw do fork local
+#═══════════════════════════════════════════════════════════════════════════════
+#
+# Uso:
+#   ./scripts/upgrade.sh              # Atualiza do branch atual
+#   ./scripts/upgrade.sh --staging    # Atualiza do staging
+#   ./scripts/upgrade.sh --develop    # Atualiza do develop
+#   ./scripts/upgrade.sh --dry-run    # Apenas simula
+#
+# O que faz:
+#   1. git fetch + pull no fork local
+#   2. pnpm install + build
+#   3. Reinstala via npm link
+#
+#═══════════════════════════════════════════════════════════════════════════════
+
+# Cores
 RED='\033[0;31m'
 GREEN='\033[0;32m'
 YELLOW='\033[1;33m'
 BLUE='\033[0;34m'
+CYAN='\033[0;36m'
 NC='\033[0m'
 
-DRY_RUN=false
-FORCE=false
-SYNC_UPSTREAM=false
-RESTART_GATEWAY=true
-
+# Auto-detectar diretório do fork
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-OPENCLAW_FORK_DIR="${OPENCLAW_FORK_DIR:-$(dirname "$SCRIPT_DIR")}"
+FORK_DIR="${OPENCLAW_FORK_DIR:-$(dirname "$SCRIPT_DIR")}"
+WORKTREES_DIR="${FORK_DIR}/.worktrees"
 
-log() { echo -e "${BLUE}[upgrade]${NC} $*"; }
-log_ok() { echo -e "${GREEN}[upgrade]${NC} ✓ $*"; }
-log_warn() { echo -e "${YELLOW}[upgrade]${NC} ⚠ $*"; }
-log_error() { echo -e "${RED}[upgrade]${NC} ✗ $*"; }
+# Flags
+DRY_RUN=0
+TARGET_BRANCH=""
+USE_WORKTREE=0
+RESTART_GATEWAY=0
 
-usage() { head -22 "$0" | grep "^#" | sed 's/^# \?//'; exit 0; }
-
+# Parse args
 while [[ $# -gt 0 ]]; do
     case $1 in
-        --dry-run) DRY_RUN=true; shift ;;
-        --force) FORCE=true; shift ;;
-        --upstream) SYNC_UPSTREAM=true; shift ;;
-        --no-restart) RESTART_GATEWAY=false; shift ;;
-        --help|-h) usage ;;
-        *) log_error "Unknown option: $1"; usage ;;
+        --dry-run)
+            DRY_RUN=1
+            shift
+            ;;
+        --staging)
+            TARGET_BRANCH="staging"
+            USE_WORKTREE=1
+            shift
+            ;;
+        --develop)
+            TARGET_BRANCH="develop"
+            USE_WORKTREE=1
+            shift
+            ;;
+        --restart)
+            RESTART_GATEWAY=1
+            shift
+            ;;
+        --help|-h)
+            echo "Uso: $0 [opções]"
+            echo ""
+            echo "Opções:"
+            echo "  --dry-run    Apenas simula, não executa"
+            echo "  --staging    Usa branch staging (pré-PROD)"
+            echo "  --develop    Usa branch develop (bleeding edge)"
+            echo "  --restart    Reinicia gateway após upgrade"
+            echo ""
+            echo "Default: branch atual (main = PROD)"
+            echo ""
+            echo "Variáveis de ambiente:"
+            echo "  OPENCLAW_FORK_DIR  Diretório do fork (default: auto-detectado)"
+            exit 0
+            ;;
+        *)
+            echo -e "${RED}Opção desconhecida: $1${NC}"
+            exit 1
+            ;;
     esac
 done
 
-[[ ! -f "$OPENCLAW_FORK_DIR/package.json" ]] && { log_error "Not a valid OpenClaw directory"; exit 1; }
+echo -e "${CYAN}╔═══════════════════════════════════════════════════════════════╗${NC}"
+echo -e "${CYAN}║           🔄 OpenClaw Fork Upgrade                            ║${NC}"
+echo -e "${CYAN}╚═══════════════════════════════════════════════════════════════╝${NC}"
+echo ""
 
-cd "$OPENCLAW_FORK_DIR"
-OLD_VERSION=$(grep '"version"' package.json | head -1 | sed 's/.*"version": *"\([^"]*\)".*/\1/')
-log "OpenClaw Fork Upgrader"
-log "Fork directory: $OPENCLAW_FORK_DIR"
-log "Current version: $OLD_VERSION"
-echo
-
-check_git() {
-    log "Checking git status..."
-    if ! git diff --quiet 2>/dev/null; then
-        log_warn "Uncommitted changes detected"
-        $FORCE || { read -p "Continue? [y/N] " -n 1 -r; echo; [[ ! $REPLY =~ ^[Yy]$ ]] && exit 0; }
+# Função para executar ou simular
+run() {
+    if [[ $DRY_RUN -eq 1 ]]; then
+        echo -e "${YELLOW}[DRY-RUN] $*${NC}"
+    else
+        echo -e "${CYAN}$ $*${NC}"
+        "$@"  # Safer than eval - prevents command injection
     fi
-    log_ok "Git OK"
 }
 
-sync_upstream() {
-    $SYNC_UPSTREAM || return
-    log "Syncing with upstream..."
-    $DRY_RUN && { log "[dry-run] Would fetch and merge upstream/main"; return; }
-    git remote get-url upstream >/dev/null 2>&1 || { log_warn "No upstream remote"; return; }
-    git fetch upstream
-    [[ "$(git branch --show-current)" == "main" ]] && git merge upstream/main --no-edit || log_warn "Not on main, skip merge"
-    log_ok "Upstream sync complete"
-}
+# Determinar diretório de trabalho
+if [[ $USE_WORKTREE -eq 1 && -d "$WORKTREES_DIR/$TARGET_BRANCH" ]]; then
+    WORK_DIR="$WORKTREES_DIR/$TARGET_BRANCH"
+else
+    WORK_DIR="$FORK_DIR"
+fi
 
-pull_changes() {
-    log "Pulling latest..."
-    $DRY_RUN && { log "[dry-run] Would run: git pull"; return; }
-    git pull --ff-only || log_warn "Fast-forward failed"
-    log_ok "Pull complete"
-}
+# Verificar se diretório existe
+if [[ ! -d "$WORK_DIR" ]]; then
+    echo -e "${RED}❌ Diretório não encontrado: $WORK_DIR${NC}"
+    exit 1
+fi
 
-rebuild() {
-    log "Rebuilding..."
-    $DRY_RUN && { log "[dry-run] Would run: npm install && npm run build"; return; }
-    rm -rf node_modules
-    npm install
-    npm run build
-    log_ok "Rebuild complete"
-}
+# Validar que é um checkout do OpenClaw (package.json + .git obrigatórios)
+if [[ ! -f "$WORK_DIR/package.json" ]] || [[ ! -d "$WORK_DIR/.git" ]]; then
+    echo -e "${RED}❌ Diretório não parece ser um checkout do OpenClaw${NC}"
+    echo -e "${YELLOW}Esperado: package.json e .git em $WORK_DIR${NC}"
+    echo -e "${YELLOW}Verifique se OPENCLAW_FORK_DIR está correto.${NC}"
+    exit 1
+fi
 
-reinstall() {
-    log "Reinstalling..."
-    $DRY_RUN && { log "[dry-run] Would run: npm link"; return; }
-    npm link
-    log_ok "Reinstall complete"
-}
+# Validar Node.js 22.12.0+
+if ! command -v node &> /dev/null; then
+    echo -e "${RED}❌ Node.js não encontrado${NC}"
+    exit 1
+fi
+NODE_VERSION=$(node --version)
+NODE_MAJOR=$(echo "$NODE_VERSION" | sed 's/v//' | cut -d. -f1)
+NODE_MINOR=$(echo "$NODE_VERSION" | sed 's/v//' | cut -d. -f2)
+if [[ "$NODE_MAJOR" -lt 22 ]] || [[ "$NODE_MAJOR" -eq 22 && "$NODE_MINOR" -lt 12 ]]; then
+    echo -e "${RED}❌ Node.js 22.12.0+ é necessário (encontrado: $NODE_VERSION)${NC}"
+    exit 1
+fi
 
-restart_gw() {
-    $RESTART_GATEWAY || return
-    log "Checking gateway..."
-    $DRY_RUN && { log "[dry-run] Would restart gateway if running"; return; }
-    pgrep -f "openclaw.*gateway" >/dev/null 2>&1 && { log "Restarting gateway..."; openclaw gateway restart 2>/dev/null || log_warn "Could not restart"; } || log "Gateway not running"
-}
+cd "$WORK_DIR"
 
-confirm() {
-    $FORCE && return 0
-    echo
-    read -p "Proceed with upgrade? [y/N] " -n 1 -r
-    echo
-    [[ ! $REPLY =~ ^[Yy]$ ]] && { log "Aborted."; exit 0; }
-}
+# Determinar branch atual se não especificado
+if [[ -z "$TARGET_BRANCH" ]]; then
+    TARGET_BRANCH=$(git branch --show-current 2>/dev/null || echo "main")
+fi
 
-main() {
-    $DRY_RUN && { log_warn "DRY RUN MODE"; echo; }
-    check_git
-    confirm
-    sync_upstream
-    pull_changes
-    rebuild
-    reinstall
-    restart_gw
-    NEW_VERSION=$(grep '"version"' package.json | head -1 | sed 's/.*"version": *"\([^"]*\)".*/\1/')
-    echo
-    log "Upgrade complete! $OLD_VERSION → $NEW_VERSION"
-}
+# Mostrar versão atual
+CURRENT_VERSION=$(grep '"version"' package.json 2>/dev/null | sed 's/.*: "\(.*\)".*/\1/' | head -1 || echo "unknown")
+CURRENT_COMMIT=$(git rev-parse --short HEAD 2>/dev/null || echo "unknown")
 
-main "$@"
+echo -e "${BLUE}📍 Estado atual:${NC}"
+echo -e "   Diretório: $WORK_DIR"
+echo -e "   Branch:    $TARGET_BRANCH"
+echo -e "   Versão:    $CURRENT_VERSION"
+echo -e "   Commit:    $CURRENT_COMMIT"
+echo ""
+
+# Verificar se há atualizações
+echo -e "${BLUE}→ Verificando atualizações...${NC}"
+run "git fetch origin"
+
+LOCAL_COMMIT=$(git rev-parse HEAD)
+REMOTE_COMMIT=$(git rev-parse "origin/$TARGET_BRANCH" 2>/dev/null || echo "")
+
+if [[ -z "$REMOTE_COMMIT" ]]; then
+    echo -e "${RED}❌ Branch origin/$TARGET_BRANCH não encontrada${NC}"
+    exit 1
+fi
+
+if [[ "$LOCAL_COMMIT" == "$REMOTE_COMMIT" ]]; then
+    echo -e "${GREEN}✅ Já está atualizado!${NC}"
+    echo ""
+    echo -e "${BLUE}→ Reinstalando para garantir integridade...${NC}"
+else
+    if [[ $DRY_RUN -eq 0 ]]; then
+        COMMITS_BEHIND=$(git rev-list --count HEAD..origin/$TARGET_BRANCH)
+        echo -e "${YELLOW}⚡ $COMMITS_BEHIND commits novos disponíveis${NC}"
+        echo ""
+        
+        # Mostrar commits novos
+        echo -e "${BLUE}📋 Novos commits:${NC}"
+        git log --oneline HEAD..origin/$TARGET_BRANCH | head -10
+        echo ""
+    fi
+    
+    # Pull
+    echo -e "${BLUE}→ Atualizando código...${NC}"
+    run "git pull origin $TARGET_BRANCH"
+fi
+
+# Mostrar nova versão
+echo ""
+NEW_VERSION=$(grep '"version"' package.json 2>/dev/null | sed 's/.*: "\(.*\)".*/\1/' | head -1 || echo "unknown")
+NEW_COMMIT=$(git rev-parse --short HEAD 2>/dev/null || echo "unknown")
+
+echo -e "${GREEN}📍 Estado após update:${NC}"
+echo -e "   Versão: $NEW_VERSION"
+echo -e "   Commit: $NEW_COMMIT"
+echo ""
+
+# Reinstalar dependências
+echo -e "${BLUE}→ Instalando dependências...${NC}"
+run "pnpm install --frozen-lockfile"
+echo ""
+
+# Build
+echo -e "${BLUE}→ Buildando...${NC}"
+run "pnpm build"
+echo ""
+
+# Reinstalar
+echo -e "${BLUE}→ Reinstalando via npm link...${NC}"
+run "npm link"
+echo ""
+
+# Gerar checksum
+if [[ -f "${SCRIPT_DIR}/build.sh" ]]; then
+    echo -e "${BLUE}→ Gerando checksum...${NC}"
+    run "${SCRIPT_DIR}/build.sh checksum"
+    echo ""
+fi
+
+# Verificar instalação
+echo -e "${BLUE}→ Verificando instalação...${NC}"
+
+if [[ $DRY_RUN -eq 0 ]]; then
+    if command -v openclaw &> /dev/null; then
+        INSTALLED_VERSION=$(openclaw --version 2>/dev/null | head -1)
+        echo -e "${GREEN}✅ OpenClaw atualizado: $INSTALLED_VERSION${NC}"
+    else
+        echo -e "${YELLOW}⚠️  openclaw não encontrado no PATH atual${NC}"
+    fi
+fi
+
+# Reiniciar gateway se solicitado
+if [[ $RESTART_GATEWAY -eq 1 ]]; then
+    echo ""
+    echo -e "${BLUE}→ Reiniciando gateway...${NC}"
+    run "openclaw gateway restart"
+fi
+
+echo ""
+echo -e "${GREEN}╔═══════════════════════════════════════════════════════════════╗${NC}"
+echo -e "${GREEN}║              ✅ Upgrade concluído com sucesso!                 ║${NC}"
+echo -e "${GREEN}╚═══════════════════════════════════════════════════════════════╝${NC}"
+
+if [[ $RESTART_GATEWAY -eq 0 ]]; then
+    echo ""
+    echo -e "${YELLOW}💡 Dica: Para aplicar as mudanças no gateway:${NC}"
+    echo -e "   openclaw gateway restart"
+    echo -e "   # ou use: $0 --restart"
+fi
