@@ -16,6 +16,9 @@ OPENCLAW_DIR="${OPENCLAW_DIR:-$HOME/.openclaw}"
 SKILLS_DIR="$OPENCLAW_DIR/skills_local"
 ALLOWLIST_FILE="$OPENCLAW_DIR/config/skills_allowlist.json"
 
+# Initialize ALLOWED_SKILLS to avoid 'set -u' abort if allowlist doesn't exist
+ALLOWED_SKILLS=""
+
 echo "OpenClaw Security Check: Skills Allowlist"
 echo "=========================================="
 
