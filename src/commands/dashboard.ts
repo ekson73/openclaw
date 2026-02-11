@@ -30,16 +30,13 @@ export async function dashboardCommand(
     bind,
     customBindHost,
     basePath,
-    tlsEnabled: cfg.gateway?.tls?.enabled === true,
   });
-  const dashboardUrl = links.httpUrl;
+  // Prefer URL fragment to avoid leaking auth tokens via query params.
+  const dashboardUrl = token
+    ? `${links.httpUrl}#token=${encodeURIComponent(token)}`
+    : links.httpUrl;
 
   runtime.log(`Dashboard URL: ${dashboardUrl}`);
-  if (token) {
-    runtime.log(
-      "Gateway token is configured. Open the dashboard URL and paste the token in Control UI settings when prompted.",
-    );
-  }
 
   const copied = await copyToClipboard(dashboardUrl).catch(() => false);
   runtime.log(copied ? "Copied to clipboard." : "Copy to clipboard unavailable.");
@@ -55,6 +52,7 @@ export async function dashboardCommand(
       hint = formatControlUiSshHint({
         port,
         basePath,
+        token: token || undefined,
       });
     }
   } else {

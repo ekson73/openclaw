@@ -24,7 +24,6 @@ import { recordRemoteNodeInfo, refreshRemoteNodeBins } from "../../../infra/skil
 import { upsertPresence } from "../../../infra/system-presence.js";
 import { loadVoiceWakeConfig } from "../../../infra/voicewake.js";
 import { rawDataToString } from "../../../infra/ws.js";
-import { isIpAllowed, parseIpAllowlist } from "../../../security/ip-allowlist.js";
 import { isGatewayCliClient, isWebchatClient } from "../../../utils/message-channel.js";
 import { authorizeGatewayConnect, isLocalDirectRequest } from "../../auth.js";
 import { buildDeviceAuthPayload } from "../../device-auth.js";
@@ -86,7 +85,7 @@ function formatGatewayAuthFailureMessage(params: {
   const isCli = isGatewayCliClient(client);
   const isControlUi = client?.id === GATEWAY_CLIENT_IDS.CONTROL_UI;
   const isWebchat = isWebchatClient(client);
-  const uiHint = "open the dashboard and paste token in Control UI settings";
+  const uiHint = "open the dashboard URL and paste the token in Control UI settings";
   const tokenHint = isCli
     ? "set gateway.remote.token to match gateway.auth.token"
     : isControlUi || isWebchat
@@ -98,8 +97,6 @@ function formatGatewayAuthFailureMessage(params: {
       ? "enter the password in Control UI settings"
       : "provide gateway auth password";
   switch (reason) {
-    case "rate_limited":
-      return "unauthorized: too many attempts (retry later)";
     case "token_missing":
       return `unauthorized: gateway token missing (${tokenHint})`;
     case "token_mismatch":
@@ -216,41 +213,6 @@ export function attachGatewayWsMessageHandler(params: {
       : clientIp && !isLoopbackAddress(clientIp)
         ? clientIp
         : undefined;
-
-  // Security: optional IP allowlist for remote access.
-  // When configured, deny any non-loopback clients not in the allowlist.
-  const allowlistRaw = (process.env.OPENCLAW_PUBLIC_BIND_IP_ALLOWLIST ?? "").trim();
-  if (allowlistRaw) {
-    const parsed = parseIpAllowlist(allowlistRaw);
-    if (!parsed.ok) {
-      setHandshakeState("failed");
-      setCloseCause("ip-allowlist-invalid", { invalidCount: parsed.invalidEntries.length });
-      close(1008, "gateway security configuration error");
-      return;
-    }
-    // Fail closed if a reverse proxy is sending forwarded headers but isn't trusted.
-    const tailscaleLogin = upgradeReq.headers?.["tailscale-user-login"];
-    const hasTailscaleIdentity =
-      typeof tailscaleLogin === "string" && tailscaleLogin.trim().length > 0;
-    // Allow Tailscale Serve proxying (identity headers are verified during auth).
-    if (
-      hasProxyHeaders &&
-      isLoopbackAddress(remoteAddr) &&
-      !remoteIsTrustedProxy &&
-      !hasTailscaleIdentity
-    ) {
-      setHandshakeState("failed");
-      setCloseCause("proxy-untrusted");
-      close(1008, "forbidden");
-      return;
-    }
-    if (clientIp && !isLoopbackAddress(clientIp) && !isIpAllowed(clientIp, parsed.entries)) {
-      setHandshakeState("failed");
-      setCloseCause("ip-allowlist-deny");
-      close(1008, "forbidden");
-      return;
-    }
-  }
 
   if (hasUntrustedProxyHeaders) {
     logWsControl.warn(
@@ -394,13 +356,8 @@ export function attachGatewayWsMessageHandler(params: {
           close(1008, "invalid role");
           return;
         }
-        const requestedScopes = Array.isArray(connectParams.scopes) ? connectParams.scopes : [];
-        const scopes =
-          requestedScopes.length > 0
-            ? requestedScopes
-            : role === "operator"
-              ? ["operator.admin"]
-              : [];
+        // Default-deny: scopes must be explicit. Empty/missing scopes means no permissions.
+        const scopes = Array.isArray(connectParams.scopes) ? connectParams.scopes : [];
         connectParams.role = role;
         connectParams.scopes = scopes;
 
@@ -624,7 +581,7 @@ export function attachGatewayWsMessageHandler(params: {
             clientId: connectParams.client.id,
             clientMode: connectParams.client.mode,
             role,
-            scopes: requestedScopes,
+            scopes,
             signedAtMs: signedAt,
             token: connectParams.auth?.token ?? null,
             nonce: providedNonce || undefined,
@@ -638,7 +595,7 @@ export function attachGatewayWsMessageHandler(params: {
               clientId: connectParams.client.id,
               clientMode: connectParams.client.mode,
               role,
-              scopes: requestedScopes,
+              scopes,
               signedAtMs: signedAt,
               token: connectParams.auth?.token ?? null,
               version: "v1",
@@ -920,6 +877,7 @@ export function attachGatewayWsMessageHandler(params: {
           connect: connectParams,
           connId,
           presenceKey,
+          clientIp: reportedClientIp,
         };
         setClient(nextClient);
         setHandshakeState("connected");
