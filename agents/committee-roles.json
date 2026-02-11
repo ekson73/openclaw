@@ -1,0 +1,165 @@
+{
+  "$schema": "../schemas/agents-config.json",
+  "version": "1.0.0",
+  "description": "Committee roles for fork governance - RC10",
+  "committee": {
+    "name": "Fork Governance Committee",
+    "purpose": "Manage ekson73/openclaw fork with quality and safety",
+    "decisionModel": "consensus-with-timeout"
+  },
+  "roles": [
+    {
+      "id": "human-owner",
+      "name": "Human Owner",
+      "description": "Final authority on all decisions",
+      "assignees": ["ekson73"],
+      "responsibilities": [
+        "Final approval for stable releases",
+        "Override any automated decision",
+        "Define governance policies",
+        "Approve security-sensitive changes"
+      ],
+      "permissions": {
+        "canApprove": ["stable", "main", "develop"],
+        "canOverride": true,
+        "canMerge": ["stable", "main"],
+        "canBypassChecks": true
+      },
+      "availability": {
+        "timezone": "America/Sao_Paulo",
+        "responseTimeMinutes": 60,
+        "escalationChannel": "whatsapp"
+      }
+    },
+    {
+      "id": "eko-orchestrator",
+      "name": "Eko (AI Orchestrator)",
+      "description": "Primary AI agent for day-to-day operations",
+      "assignees": ["eko-bot"],
+      "responsibilities": [
+        "Review and approve develop PRs",
+        "Coordinate sub-agents for reviews",
+        "Monitor upstream changes",
+        "Manage harvest process",
+        "Escalate to human when needed"
+      ],
+      "permissions": {
+        "canApprove": ["develop"],
+        "canOverride": false,
+        "canMerge": ["develop"],
+        "canBypassChecks": false
+      },
+      "constraints": {
+        "requireHumanForStable": true,
+        "maxConsecutiveApprovals": 5,
+        "cooldownMinutes": 10
+      }
+    },
+    {
+      "id": "security-reviewer",
+      "name": "Security Reviewer",
+      "description": "Specialized in security reviews",
+      "assignees": ["eko-bot"],
+      "responsibilities": [
+        "Review security implications",
+        "Check for sensitive data exposure",
+        "Validate dependency updates",
+        "Audit permission changes"
+      ],
+      "permissions": {
+        "canBlock": true,
+        "canRequestChanges": true,
+        "canApprove": ["develop"]
+      },
+      "triggers": {
+        "paths": ["**/security/**", "**/auth/**", "**/*.key", "**/*.pem"],
+        "labels": ["security", "dependencies"]
+      }
+    },
+    {
+      "id": "qa-reviewer",
+      "name": "QA Reviewer",
+      "description": "Quality assurance and testing",
+      "assignees": ["eko-bot"],
+      "responsibilities": [
+        "Verify test coverage",
+        "Check for breaking changes",
+        "Validate documentation",
+        "Review changelog entries"
+      ],
+      "permissions": {
+        "canApprove": ["develop"],
+        "canRequestChanges": true
+      },
+      "triggers": {
+        "paths": ["**/*.test.*", "**/test/**", "**/spec/**"],
+        "labels": ["testing", "qa"]
+      }
+    },
+    {
+      "id": "architecture-reviewer",
+      "name": "Architecture Reviewer",
+      "description": "Design and architecture decisions",
+      "assignees": ["ekson73", "eko-bot"],
+      "responsibilities": [
+        "Review architectural changes",
+        "Validate design decisions",
+        "Check for tech debt",
+        "Ensure consistency"
+      ],
+      "permissions": {
+        "canApprove": ["develop", "main"],
+        "canBlock": true
+      },
+      "triggers": {
+        "paths": ["**/core/**", "**/lib/**", "**/*.md"],
+        "labels": ["architecture", "design", "rfc"]
+      }
+    }
+  ],
+  "votingRules": {
+    "stable": {
+      "required": ["human-owner"],
+      "optional": ["eko-orchestrator", "security-reviewer"],
+      "minApprovals": 1,
+      "unanimity": true,
+      "timeoutMinutes": 1440
+    },
+    "main": {
+      "required": ["eko-orchestrator"],
+      "optional": ["human-owner", "security-reviewer"],
+      "minApprovals": 1,
+      "unanimity": false,
+      "timeoutMinutes": 60
+    },
+    "develop": {
+      "required": [],
+      "optional": ["eko-orchestrator", "qa-reviewer"],
+      "minApprovals": 1,
+      "unanimity": false,
+      "timeoutMinutes": 30
+    }
+  },
+  "escalation": {
+    "levels": [
+      {
+        "level": 1,
+        "afterMinutes": 30,
+        "notify": ["eko-orchestrator"],
+        "channel": "github-comment"
+      },
+      {
+        "level": 2,
+        "afterMinutes": 60,
+        "notify": ["human-owner"],
+        "channel": "whatsapp"
+      },
+      {
+        "level": 3,
+        "afterMinutes": 240,
+        "action": "auto-close",
+        "reason": "No response within SLA"
+      }
+    ]
+  }
+}

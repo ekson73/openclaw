@@ -1,0 +1,101 @@
+{
+  "$schema": "../schemas/agents-config.json",
+  "version": "1.0.0",
+  "description": "Delegation templates for sub-agent tasks - RC10",
+  "templates": [
+    {
+      "id": "code-review",
+      "name": "Code Review Delegation",
+      "description": "Delegate code review to specialized sub-agent",
+      "context": {
+        "requiredFields": ["prNumber", "prTitle", "changedFiles", "diffSize"],
+        "optionalFields": ["labels", "author", "baseBranch"]
+      },
+      "prompt": {
+        "framework": "7W",
+        "template": "## Contexto (7W)\n\n**O QUÊ:** Review PR #{prNumber} - {prTitle}\n\n**POR QUÊ:** Garantir qualidade antes de merge\n\n**PARA QUÊ:** Manter codebase saudável\n\n**QUEM:** Eko → você (reviewer)\n\n**ONDE:**\n- PR: {prUrl}\n- Arquivos: {changedFiles}\n- Base: {baseBranch}\n\n**QUANDO:** Retornar em até {timeoutMinutes} minutos\n\n**COMO:** Analisar código, checar testes, validar documentação\n\n---\n\n## Checklist de Review\n\n- [ ] Código segue padrões do projeto\n- [ ] Testes adequados incluídos\n- [ ] Sem secrets/dados sensíveis\n- [ ] Documentação atualizada\n- [ ] Changelog entry se necessário\n\n## Entrega\n\n- Status: APPROVE | REQUEST_CHANGES | COMMENT\n- Comentário detalhado se não aprovado"
+      },
+      "defaults": {
+        "timeoutMinutes": 15,
+        "escalateOnTimeout": true
+      }
+    },
+    {
+      "id": "security-review",
+      "name": "Security Review Delegation",
+      "description": "Delegate security-focused review",
+      "context": {
+        "requiredFields": ["prNumber", "changedFiles", "securityRelevantPaths"]
+      },
+      "prompt": {
+        "framework": "7W",
+        "template": "## Contexto (7W)\n\n**O QUÊ:** Security Review PR #{prNumber}\n\n**POR QUÊ:** Detectar vulnerabilidades antes de merge\n\n**PARA QUÊ:** Proteger usuários e sistema\n\n**QUEM:** Eko → você (security reviewer)\n\n**ONDE:**\n- PR: {prUrl}\n- Arquivos relevantes: {securityRelevantPaths}\n\n**QUANDO:** Retornar em até {timeoutMinutes} minutos\n\n**COMO:** OWASP checklist, dependency audit, secrets scan\n\n---\n\n## Security Checklist\n\n- [ ] No hardcoded secrets/tokens\n- [ ] No exposed PII\n- [ ] Input validation present\n- [ ] Auth/authz properly checked\n- [ ] Dependencies up-to-date\n- [ ] No known vulnerabilities\n\n## Entrega\n\n- Severity: CRITICAL | HIGH | MEDIUM | LOW | NONE\n- Findings detalhados se severity > NONE"
+      },
+      "defaults": {
+        "timeoutMinutes": 20,
+        "escalateOnTimeout": true,
+        "priority": "high"
+      }
+    },
+    {
+      "id": "upstream-analysis",
+      "name": "Upstream Analysis Delegation",
+      "description": "Analyze upstream changes for harvest",
+      "context": {
+        "requiredFields": ["commitRange", "upstreamBranch"],
+        "optionalFields": ["focusAreas", "excludePaths"]
+      },
+      "prompt": {
+        "framework": "7W",
+        "template": "## Contexto (7W)\n\n**O QUÊ:** Analisar commits upstream {commitRange}\n\n**POR QUÊ:** Identificar mudanças relevantes para harvest\n\n**PARA QUÊ:** Manter fork atualizado com melhorias do upstream\n\n**QUEM:** Eko → você (analyst)\n\n**ONDE:**\n- Upstream: openclaw/openclaw\n- Branch: {upstreamBranch}\n- Range: {commitRange}\n\n**QUANDO:** Retornar em até {timeoutMinutes} minutos\n\n**COMO:** Classificar commits, identificar conflitos potenciais\n\n---\n\n## Classificar cada commit:\n\n1. **HARVEST** - Queremos este\n2. **SKIP** - Não relevante\n3. **REVIEW** - Precisa análise humana\n4. **CONFLICT** - Conflita com nossas mudanças\n\n## Entrega\n\n- Lista de commits com classificação\n- Recomendações de ordem de cherry-pick"
+      },
+      "defaults": {
+        "timeoutMinutes": 10,
+        "escalateOnTimeout": false
+      }
+    },
+    {
+      "id": "documentation-review",
+      "name": "Documentation Review Delegation",
+      "description": "Review documentation changes",
+      "context": {
+        "requiredFields": ["prNumber", "docFiles"]
+      },
+      "prompt": {
+        "framework": "7W",
+        "template": "## Contexto (7W)\n\n**O QUÊ:** Review docs PR #{prNumber}\n\n**POR QUÊ:** Garantir documentação clara e precisa\n\n**PARA QUÊ:** Facilitar uso e manutenção\n\n**QUEM:** Eko → você (docs reviewer)\n\n**ONDE:**\n- PR: {prUrl}\n- Docs: {docFiles}\n\n**QUANDO:** Retornar em até {timeoutMinutes} minutos\n\n**COMO:** Verificar clareza, completude, exemplos\n\n---\n\n## Checklist\n\n- [ ] Gramática e ortografia OK\n- [ ] Exemplos funcionais\n- [ ] Links válidos\n- [ ] TOC atualizado se necessário\n- [ ] Consistência com docs existentes\n\n## Entrega\n\n- Sugestões de melhoria\n- Typos encontrados"
+      },
+      "defaults": {
+        "timeoutMinutes": 10,
+        "escalateOnTimeout": false
+      }
+    },
+    {
+      "id": "release-validation",
+      "name": "Release Validation Delegation",
+      "description": "Validate release candidate",
+      "context": {
+        "requiredFields": ["version", "targetBranch", "changelogDraft"]
+      },
+      "prompt": {
+        "framework": "7W",
+        "template": "## Contexto (7W)\n\n**O QUÊ:** Validar release {version}\n\n**POR QUÊ:** Garantir qualidade da release\n\n**PARA QUÊ:** Release estável para usuários\n\n**QUEM:** Eko → você (release validator)\n\n**ONDE:**\n- Branch: {targetBranch}\n- Version: {version}\n\n**QUANDO:** Retornar em até {timeoutMinutes} minutos\n\n**COMO:** Checklist de release, smoke tests\n\n---\n\n## Checklist\n\n- [ ] Todos os testes passando\n- [ ] Changelog atualizado\n- [ ] Versão bumped corretamente\n- [ ] No breaking changes não documentados\n- [ ] Dependencies atualizadas\n- [ ] Sem security issues pendentes\n\n## Entrega\n\n- GO | NO-GO decision\n- Lista de issues bloqueantes se NO-GO"
+      },
+      "defaults": {
+        "timeoutMinutes": 15,
+        "escalateOnTimeout": true,
+        "priority": "high"
+      }
+    }
+  ],
+  "variables": {
+    "prUrl": "https://github.com/ekson73/openclaw/pull/{prNumber}",
+    "defaultTimeout": 15,
+    "maxTimeout": 60
+  },
+  "hooks": {
+    "beforeDelegation": ["validate-context", "check-rate-limit"],
+    "afterDelegation": ["log-delegation", "update-metrics"],
+    "onTimeout": ["notify-escalation", "log-timeout"]
+  }
+}
