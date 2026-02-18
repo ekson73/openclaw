@@ -48,12 +48,8 @@ case "$TYPE" in
         ;;
 esac
 
-# Validate NAME (prevent path traversal)
-if [[ "$NAME" =~ \.\./ ]] || [[ "$NAME" =~ ^/ ]] || [[ "$NAME" =~ [[:space:]] ]]; then
-    echo -e "${RED}Invalid name: $NAME${NC}"
-    echo "Name cannot contain '../', start with '/', or contain spaces"
-    exit 1
-fi
+# Validate NAME (strict alphanumeric, hyphens, underscores only)
+[[ ! "$NAME" =~ ^[A-Za-z0-9_-]+$ ]] && { echo "ERROR: Invalid name"; exit 1; }
 
 # Validate NAME format (kebab-case only)
 if ! [[ "$NAME" =~ ^[a-z0-9]+(-[a-z0-9]+)*$ ]]; then
@@ -101,21 +97,7 @@ if [[ -f "$SESSIONS_FILE" ]]; then
         AGENT_NAME="${OPENCLAW_AGENT_NAME:-unknown}"
         
         # Create new session entry
-        NEW_SESSION=$(cat <<EOF
-{
-  "session_id": "${AGENT_NAME}-${NAME}",
-  "agent_name": "${AGENT_NAME}",
-  "started_at": "${TIMESTAMP}",
-  "last_heartbeat": "${TIMESTAMP}",
-  "worktree_path": "${WORKTREE_DIR}",
-  "branch": "${BRANCH_NAME}",
-  "parent_branch": "${BASE_BRANCH}",
-  "working_on": [],
-  "status": "active",
-  "notes": "Created by setup-worktree.sh"
-}
-EOF
-)
+        NEW_SESSION=$(jq -n --arg id "$AGENT_NAME-$NAME" --arg name "$AGENT_NAME" --arg ts "$TIMESTAMP" --arg dir "$WORKTREE_DIR" --arg branch "$BRANCH_NAME" --arg base "$BASE_BRANCH" '{session_id: $id, agent_name: $name, started_at: $ts, last_heartbeat: $ts, worktree_path: $dir, branch: $branch, parent_branch: $base, working_on: [], status: "active", notes: ""}')
         # Add to active_sessions
         jq --argjson session "$NEW_SESSION" '.active_sessions += [$session] | .last_updated = (now | todate)' "$SESSIONS_FILE" > "${SESSIONS_FILE}.tmp" && mv "${SESSIONS_FILE}.tmp" "$SESSIONS_FILE"
         echo -e "${GREEN}✓ Session added to sessions.json${NC}"
@@ -132,21 +114,21 @@ TIMESTAMP=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
 cat > "$LINEAGE_FILE" << EOF
 # LINEAGE.md
 
-## Origem
-- **Criado por:** ${AGENT_NAME}
+## Origin
+- **Created by:** ${AGENT_NAME}
 - **Parent session:** ${OPENCLAW_SESSION_ID:-main}
-- **Data:** ${TIMESTAMP}
-- **Branch base:** ${BASE_BRANCH}
+- **Date:** ${TIMESTAMP}
+- **Base branch:** ${BASE_BRANCH}
 
-## Objetivo
-<!-- Descreva o objetivo desta branch -->
+## Purpose
+<!-- Describe the purpose of this branch -->
 
-## Arquivos Principais
-<!-- Liste os arquivos principais que serão modificados -->
+## Key Files
+<!-- List the key files that will be modified -->
 
-## Dependências
-- Depende de: <!-- outras branches/PRs -->
-- Bloqueado por: <!-- issues/decisões pendentes -->
+## Dependencies
+- Depends on: <!-- other branches/PRs -->
+- Blocked by: <!-- pending issues/decisions -->
 
 ## Status
 - [ ] Implementação
@@ -159,7 +141,7 @@ cat > "$LINEAGE_FILE" << EOF
 *Gerado automaticamente por setup-worktree.sh*
 EOF
 
-echo -e "${GREEN}✓ LINEAGE.md criado${NC}"
+echo -e "${GREEN}✓ LINEAGE.md created${NC}"
 
 echo ""
 echo -e "${GREEN}=== Worktree Created ===${NC}"
@@ -168,7 +150,7 @@ echo "Next steps:"
 echo "  1. cd $FULL_WORKTREE_PATH"
 echo "  2. Edit LINEAGE.md with your objective"
 echo "  3. Make your changes"
-echo "  4. git add . && git commit -m \"$TYPE: description\""
+echo "  4. git add <specific-files> && git commit -m \"$TYPE: description\""
 echo "  5. git push origin $BRANCH_NAME"
 echo "  6. gh pr create --base develop"
 echo ""

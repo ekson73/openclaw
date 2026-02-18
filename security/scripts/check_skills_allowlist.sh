@@ -96,7 +96,7 @@ if [[ -d "$SKILLS_DIR" ]]; then
           # Empty allowlist = block ALL skills
           echo -e "    ${RED}✗ $skill_id (allowlist is empty - no skills permitted)${NC}"
           EXIT_CODE=1
-        elif echo "$ALLOWED_SKILLS" | grep -qFx "$skill_id"; then
+        elif echo "$ALLOWED_SKILLS" | grep -Fqx "$skill_id"; then
           echo -e "    ${GREEN}✓ $skill_id (allowed)${NC}"
         else
           echo -e "    ${RED}✗ $skill_id (NOT in allowlist)${NC}"
