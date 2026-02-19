@@ -1,3 +1,9 @@
+---
+title: Webhook Security Patterns
+summary: Recommended hardening patterns for OpenClaw webhook endpoints
+permalink: /security/webhook-security-patterns/
+---
+
 # Webhook Security Patterns
 
 > Adopted from optimalAIs/openclaw-with-dailyflows (fork-harvest, score 8.00)
@@ -19,6 +25,7 @@ const MAX_SKEW_MS = 5 * 60 * 1000; // 5 minutes
 if (Math.abs(Date.now() - parsedTimestamp) > MAX_SKEW_MS) {
   res.statusCode = 401;
   res.end("stale timestamp");
+  return;
 }
 ```
 
@@ -26,6 +33,7 @@ if (Math.abs(Date.now() - parsedTimestamp) > MAX_SKEW_MS) {
 
 ```typescript
 // Use crypto.timingSafeEqual() to prevent timing attacks
+// Note: timingSafeEqual throws if buffers differ in length — always check .length first
 import { timingSafeEqual } from "node:crypto";
 ```
 
@@ -41,6 +49,7 @@ private readBody(req, maxBytes, timeoutMs = 30_000) {
 ### 5. Connection Close Handling
 
 ```typescript
+// Pseudocode — finish() and reject() are application-specific callbacks
 req.on("close", () => finish(() => reject(new Error("Connection closed"))));
 // Handle abrupt disconnects gracefully
 ```
