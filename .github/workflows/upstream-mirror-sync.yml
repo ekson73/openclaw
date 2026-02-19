@@ -24,7 +24,6 @@ jobs:
       - name: Checkout fork
         uses: actions/checkout@v4
         with:
-          ref: upstream-sync
           fetch-depth: 0
 
       - name: Add upstream remote
@@ -39,12 +38,11 @@ jobs:
 
       - name: Reset upstream-sync to upstream/main
         run: |
-          git checkout upstream-sync
-          git reset --hard upstream/main
+          git checkout -B upstream-sync upstream/main
 
       - name: Push mirror branch
         run: |
-          git push --force-with-lease origin upstream-sync
+          git push --force origin upstream-sync
 
       - name: Summary
         run: |
