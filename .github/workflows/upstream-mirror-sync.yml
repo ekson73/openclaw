@@ -1,0 +1,54 @@
+# Upstream Sync Mirror (ADR-003 compliant)
+# Syncs upstream/main into `upstream-sync` branch (read-only mirror).
+# Does NOT push to main or develop — zero trust upstream.
+# The Scanner agent consumes upstream-sync to identify adoptable changes.
+#
+# Adapted from jt196/openclaw (fork-harvest adoption)
+name: Sync upstream mirror
+
+on:
+  workflow_dispatch:
+  schedule:
+    # daily at 03:17 UTC
+    - cron: "17 3 * * *"
+
+permissions:
+  contents: write
+
+jobs:
+  sync:
+    name: Sync upstream into upstream-sync mirror
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout fork
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Add upstream remote
+        run: |
+          git remote add upstream https://github.com/openclaw/openclaw.git || true
+          git fetch upstream
+
+      - name: Configure git
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+
+      - name: Reset upstream-sync to upstream/main
+        run: |
+          git checkout -B upstream-sync upstream/main
+
+      - name: Push mirror branch
+        run: |
+          git push --force origin upstream-sync
+
+      - name: Summary
+        run: |
+          echo "### ✅ upstream-sync updated" >> "$GITHUB_STEP_SUMMARY"
+          echo "" >> "$GITHUB_STEP_SUMMARY"
+          echo "Branch \`upstream-sync\` now mirrors \`upstream/main\` at:" >> "$GITHUB_STEP_SUMMARY"
+          echo "\`$(git rev-parse --short HEAD)\` — $(git log -1 --format='%s')" >> "$GITHUB_STEP_SUMMARY"
+          echo "" >> "$GITHUB_STEP_SUMMARY"
+          echo "> **ADR-003:** This branch is a read-only mirror. No code enters develop/main without pipeline review." >> "$GITHUB_STEP_SUMMARY"
