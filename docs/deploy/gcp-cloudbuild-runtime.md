@@ -44,6 +44,27 @@ This script:
 - Removes local `build: .` from compose (runtime pull-only)
 - Pulls image and restarts `openclaw-gateway`
 
+If pull fails with `Unauthenticated request` from Artifact Registry, fix VM auth once:
+
+```bash
+PROJECT_ID=oc-backy
+ZONE=us-central1-a
+INSTANCE=openclaw-gateway
+INSTANCE_SA=189990575968-compute@developer.gserviceaccount.com
+
+gcloud projects add-iam-policy-binding "$PROJECT_ID" \
+  --member="serviceAccount:${INSTANCE_SA}" \
+  --role="roles/artifactregistry.reader"
+
+gcloud compute instances stop "$INSTANCE" --zone="$ZONE" --project="$PROJECT_ID"
+gcloud compute instances set-service-account "$INSTANCE" \
+  --zone="$ZONE" \
+  --project="$PROJECT_ID" \
+  --service-account="$INSTANCE_SA" \
+  --scopes="https://www.googleapis.com/auth/cloud-platform"
+gcloud compute instances start "$INSTANCE" --zone="$ZONE" --project="$PROJECT_ID"
+```
+
 ## 4) Rollback (if needed)
 
 SSH into the VM and restore latest backups:

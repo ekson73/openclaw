@@ -35,7 +35,10 @@ if grep -q '^[[:space:]]*build:' docker-compose.yml; then
   sed -i '/^[[:space:]]*build:[[:space:]]*\\.?[[:space:]]*$/d' docker-compose.yml
 fi
 
-docker compose pull openclaw-gateway openclaw-cli || docker compose pull
+# Ensure Docker can fetch from Artifact Registry for this host.
+gcloud auth configure-docker ${REGION}-docker.pkg.dev --quiet >/dev/null 2>&1 || true
+
+docker compose pull openclaw-gateway
 docker compose up -d openclaw-gateway
 docker compose ps
 docker compose logs --tail=50 openclaw-gateway
