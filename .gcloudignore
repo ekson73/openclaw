@@ -1,0 +1,6 @@
+# Keep Cloud Build uploads independent from .gitignore so required build files
+# (such as pnpm-lock.yaml) are always included.
+.git
+.gitignore
+.github
+node_modules
