@@ -29,7 +29,7 @@ gcloud builds submit --config cloudbuild.yaml .
 Expected image tags:
 
 - `us-central1-docker.pkg.dev/oc-backy/openclaw/openclaw-gateway:main`
-- `us-central1-docker.pkg.dev/oc-backy/openclaw/openclaw-gateway:<SHORT_SHA>`
+- `us-central1-docker.pkg.dev/oc-backy/openclaw/openclaw-gateway:<BUILD_ID>`
 
 ## 3) Switch VM runtime to registry image
 
