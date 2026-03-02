@@ -1,6 +1,5 @@
 import type { AnyMessageContent, proto, WAMessage } from "@whiskeysockets/baileys";
 import { DisconnectReason, isJidGroup } from "@whiskeysockets/baileys";
-import type { WebInboundMessage, WebListenerCloseReason } from "./types.js";
 import { createInboundDebouncer } from "../../auto-reply/inbound-debounce.js";
 import { formatLocationText } from "../../channels/location.js";
 import { logVerbose, shouldLogVerbose } from "../../globals.js";
@@ -21,6 +20,7 @@ import {
 } from "./extract.js";
 import { downloadInboundMedia } from "./media.js";
 import { createWebSendApi } from "./send-api.js";
+import type { WebInboundMessage, WebListenerCloseReason } from "./types.js";
 
 /** Reaction notification event data */
 export interface WebReactionEvent {
@@ -401,7 +401,14 @@ export async function monitorWebInbox(options: {
         const reactorLabel = reactorE164 ?? reactorJid;
 
         inboundLogger.info(
-          { chatJid, messageId, emoji: emoji || "(removed)", action, reactor: reactorLabel, fromMe },
+          {
+            chatJid,
+            messageId,
+            emoji: emoji || "(removed)",
+            action,
+            reactor: reactorLabel,
+            fromMe,
+          },
           "whatsapp reaction event",
         );
 
