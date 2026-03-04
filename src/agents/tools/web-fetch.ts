@@ -1,11 +1,11 @@
 import { Type } from "@sinclair/typebox";
 import type { OpenClawConfig } from "../../config/config.js";
+import type { AnyAgentTool } from "./common.js";
 import { SsrFBlockedError } from "../../infra/net/ssrf.js";
 import { logDebug } from "../../logger.js";
 import { wrapExternalContent, wrapWebContent } from "../../security/external-content.js";
 import { normalizeSecretInput } from "../../utils/normalize-secret-input.js";
 import { stringEnum } from "../schema/typebox.js";
-import type { AnyAgentTool } from "./common.js";
 import { jsonResult, readNumberParam, readStringParam } from "./common.js";
 import {
   extractReadableContent,
@@ -344,7 +344,7 @@ function normalizeContentType(value: string | null | undefined): string | undefi
     return undefined;
   }
   const [raw] = value.split(";");
-  const trimmed = raw?.trim();
+  const trimmed = raw?.trim().toLowerCase();
   return trimmed || undefined;
 }
 
