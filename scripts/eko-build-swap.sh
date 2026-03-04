@@ -9,7 +9,7 @@ set -euo pipefail
 # ── Ensure ~/.local/bin in PATH (install.sh --git coloca o wrapper lá)
 export PATH="$HOME/.local/bin:$PATH"
 
-LOG="$HOME/clawd/memory/logs/build-swap-$(date +%Y%m%d-%H%M%S).log"
+LOG="$HOME/openclaw/agents/eko/memory/logs/build-swap-$(date +%Y%m%d-%H%M%S).log"
 mkdir -p "$(dirname "$LOG")"
 
 # Tee tudo para log + terminal
