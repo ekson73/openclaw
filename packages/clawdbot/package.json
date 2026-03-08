@@ -1,14 +1,14 @@
 {
-  "name": "clawdbot",
+  "name": "openclaw",
   "version": "2026.2.12",
   "description": "Compatibility shim that forwards to openclaw",
   "bin": {
-    "clawdbot": "./bin/clawdbot.js"
+    "openclaw": "./bin/openclaw.js"
   },
   "type": "module",
   "exports": {
     ".": "./index.js",
-    "./cli-entry": "./bin/clawdbot.js"
+    "./cli-entry": "./bin/openclaw.js"
   },
   "dependencies": {
     "openclaw": "workspace:*"
